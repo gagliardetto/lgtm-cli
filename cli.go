@@ -1615,10 +1615,17 @@ type GitURL struct {
 }
 
 func (grl *GitURL) URL() string {
-	if grl.Repo != "" {
-		return grl.Scheme + "://" + grl.Hostname + ":" + grl.Port + "/" + grl.User + "/" + grl.Repo
+	if grl.Port != "" {
+		if grl.Repo != "" {
+			return grl.Scheme + "://" + grl.Hostname + ":" + grl.Port + "/" + grl.User + "/" + grl.Repo
+		}
+		return grl.Scheme + "://" + grl.Hostname + ":" + grl.Port + "/" + grl.User
+	} else {
+		if grl.Repo != "" {
+			return grl.Scheme + "://" + grl.Hostname + "/" + grl.User + "/" + grl.Repo
+		}
+		return grl.Scheme + "://" + grl.Hostname + "/" + grl.User
 	}
-	return grl.Scheme + "://" + grl.Hostname + ":" + grl.Port + "/" + grl.User
 }
 
 // ParseGitURL verifies and splits a URL into the git repo info (hostname, userr account name, repo name)
@@ -1630,7 +1637,7 @@ func ParseGitURL(rawURL string, mustHaveRepoName bool) (*GitURL, error) {
 			rawURL = TrimSlashes(defaultHost) + "/" + TrimSlashes(rawURL)
 		}
 	}
-	parsedURL, err := urlx.Parse(rawURL)
+	parsedURL, err := urlx.ParseWithDefaultScheme(rawURL, "https")
 	if err != nil {
 		return nil, err
 	}
