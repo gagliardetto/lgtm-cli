@@ -85,7 +85,7 @@ func main() {
 		err := client.FollowProject(u)
 		if err != nil {
 			Errorf(
-				"error while following project %s: %s",
+				"error while following project %s : %s",
 				u,
 				err,
 			)
@@ -109,7 +109,7 @@ func main() {
 		err := client.RebuildProtoProject(key)
 		if err != nil {
 			Errorf(
-				"error while forcing rebuild of proto project %s: %s",
+				"error while forcing rebuild of proto project %s : %s",
 				name,
 				err,
 			)

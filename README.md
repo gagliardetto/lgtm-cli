@@ -23,18 +23,9 @@ cat $GOPATH/src/github.com/gagliardetto/lgtm-cli/kube_reduced.txt | cut -f1,2,3 
 ## high level actions
 
 - unfollow all projects
+- unfollow specific projects
 - follow a project: from input, or from file
-- unfollow a project: from autocomplete, or from file
-- add a project to a list: from autocomplete, or from file
-- remove a project from a list
-
-## low-lever actions
-
-- get list of followed projects
-- unfollow all
-- get followed, check if item matches, and add to sublist
-- get list of lists
-
+- run query on projects
 
 # unfollow all projects
 lgtm-cli unfollow-all
