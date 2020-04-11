@@ -397,6 +397,11 @@ func main() {
 						panic("--query not set")
 					}
 
+					fileExt := filepath.Ext(queryFilepath)
+					if fileExt != ".ql" {
+						panic(Sf("file is not a .ql: %s", queryFilepath))
+					}
+
 					queryBytes, err := ioutil.ReadFile(queryFilepath)
 					if err != nil {
 						return err
@@ -485,7 +490,7 @@ func main() {
 							}
 						}
 						totalToBeFollowed := len(toBeFollowed)
-						Infof("Will follow %v projects...", totalToBeFollowed)
+						Infof("Will follow %v projects (NOTE: might not be availabe for query immediately)...", totalToBeFollowed)
 						// follow repos:
 						for index, repoURL := range toBeFollowed {
 							proto, isProto := IsProto(repoURL)
