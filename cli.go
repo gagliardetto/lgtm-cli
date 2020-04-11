@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -542,10 +543,12 @@ func main() {
 						queryFilepath,
 						len(projectkeys),
 					)
+					projectListKeys := c.StringSlice("list-key")
 					queryConfig := &QueryConfig{
-						Lang:        lang,
-						ProjectKeys: projectkeys,
-						QueryString: queryString,
+						Lang:                 lang,
+						ProjectKeys:          projectkeys,
+						QueryString:          queryString,
+						ProjectSelectionKeys: projectListKeys,
 					}
 					resp, err := client.Query(queryConfig)
 					if err != nil {
@@ -553,14 +556,17 @@ func main() {
 					}
 
 					Infof("See query results at:")
-
 					fmt.Println(resp.GetResultLink())
 					return nil
 				},
 				Flags: []cli.Flag{
 					&cli.StringSliceFlag{
 						Name:  "exclude, e",
-						Usage: "Exclude project; example: github/api.",
+						Usage: "Exclude project; example: github/api",
+					},
+					&cli.StringSliceFlag{
+						Name:  "list-key, lk",
+						Usage: "Project list key on which to run the query (can specify multiple).",
 					},
 					&cli.StringFlag{
 						Name:  "lang, l",
@@ -730,8 +736,6 @@ func (cl *Client) ListFollowedProjects() ([]*Project, []*ProtoProject, error) {
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -775,7 +779,7 @@ type CommonResponse struct {
 	Status string `json:"status"`
 }
 
-const STATUS_SUCCESS = "success"
+const STATUS_SUCCESS_STRING = "success"
 
 func (cl *Client) UnfollowProject(key string) error {
 
@@ -793,8 +797,6 @@ func (cl *Client) UnfollowProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -818,7 +820,7 @@ func (cl *Client) UnfollowProject(key string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -840,8 +842,6 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -865,7 +865,7 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -889,8 +889,6 @@ func (cl *Client) RebuildProtoProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -914,7 +912,7 @@ func (cl *Client) RebuildProtoProject(key string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -936,8 +934,6 @@ func (cl *Client) FollowProject(u string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -961,7 +957,7 @@ func (cl *Client) FollowProject(u string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -984,8 +980,6 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1009,7 +1003,7 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -1032,8 +1026,6 @@ func (cl *Client) CreateProjectSelection(name string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1057,13 +1049,16 @@ func (cl *Client) CreateProjectSelection(name string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
 	return nil
 }
 func formatStringArray(sl ...string) string {
+	if len(sl) == 0 {
+		return "[]"
+	}
 	marshaled, err := json.Marshal(sl)
 	if err != nil {
 		panic(err)
@@ -1088,8 +1083,6 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1112,7 +1105,7 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 	if err != nil {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -1147,8 +1140,6 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1199,8 +1190,6 @@ func (cl *Client) ListProjectSelections() ([]*ProjectSelectionBare, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1224,7 +1213,7 @@ func (cl *Client) ListProjectSelections() ([]*ProjectSelectionBare, error) {
 		return nil, fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return nil, fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -1262,8 +1251,6 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		// TODO: catch rate limit error, and wait
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1287,7 +1274,7 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 		return nil, fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return nil, fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
@@ -1295,9 +1282,10 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 }
 
 type QueryConfig struct {
-	Lang        string
-	ProjectKeys []string
-	QueryString string
+	Lang                 string
+	ProjectKeys          []string
+	ProjectSelectionKeys []string
+	QueryString          string
 }
 
 type QueryResponse struct {
@@ -1337,7 +1325,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 	req.Data = map[string]string{
 		"lang":                 conf.Lang,
 		"projectKeys":          formatStringArray(conf.ProjectKeys...),
-		"projectSelectionKeys": "[]",
+		"projectSelectionKeys": formatStringArray(conf.ProjectSelectionKeys...),
 		"queryString":          conf.QueryString,
 		"queryAllProjects":     "false",
 		"guessedLocation":      "",
@@ -1349,7 +1337,6 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		//io.Copy(ioutil.Discard, resp.Body)
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
@@ -1373,7 +1360,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 		return nil, fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
-	if response.Status != STATUS_SUCCESS {
+	if response.Status != STATUS_SUCCESS_STRING {
 		return nil, fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
