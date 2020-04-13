@@ -509,6 +509,13 @@ func main() {
 						return strings.TrimPrefix(s, "https://github.com/")
 					}
 
+					// if no repos specified, and flag --all is true, then query all:
+					if len(repoURLs) == 0 && c.Bool("all") {
+						for _, pr := range projects {
+							repoURLs = append(repoURLs, pr.ExternalURL.URL)
+						}
+					}
+
 					projectkeys := make([]string, 0)
 					for _, repoURL := range repoURLs {
 
@@ -583,6 +590,10 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "force, F",
 						Usage: "Follow what is not followed.",
+					},
+					&cli.BoolFlag{
+						Name:  "all, a",
+						Usage: "Query all followed projects.",
 					},
 				},
 			},
