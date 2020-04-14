@@ -511,6 +511,7 @@ func main() {
 
 					// if no repos specified, and flag --all is true, then query all:
 					if len(repoURLs) == 0 && c.Bool("all") {
+						Infof("Gonna query all %v projects", len(projects))
 						for _, pr := range projects {
 							repoURLs = append(repoURLs, pr.ExternalURL.URL)
 						}
@@ -529,11 +530,10 @@ func main() {
 						if !already {
 							Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
 						} else {
-							isSupportedLanguageForProject := SliceContains(pr.Languages, lang)
+							isSupportedLanguageForProject := pr.SupportsLanguage(lang)
 							if !isSupportedLanguageForProject {
 								Warnf("%s does not have language %s; skipping", trimGithubPrefix(repoURL), lang)
 							} else {
-
 								isExcluded := SliceContains(excluded, pr.DisplayName)
 								if isExcluded {
 									Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
@@ -1553,6 +1553,11 @@ type Project struct {
 	AdminURL           string               `json:"adminURL"`
 	Modes              Modes                `json:"modes"`
 }
+
+func (pr *Project) SupportsLanguage(lang string) bool {
+	return SliceContains(pr.Languages, lang)
+}
+
 type TotalLanguageChurn struct {
 	Lang  string `json:"lang"`
 	Churn int    `json:"churn"`
@@ -1699,4 +1704,60 @@ func ParseGitURL(rawURL string, mustHaveRepoName bool) (*GitURL, error) {
 }
 func CountSlashes(s string) int {
 	return strings.Count(s, "/")
+}
+
+type Language string
+
+const (
+	LangGo         Language = "go"
+	LangCPP        Language = "cpp"
+	LangCSharp     Language = "csharp"
+	LangJava       Language = "java"
+	LangJavaScript Language = "javascript"
+	LangPython     Language = "python"
+)
+
+func (cl *Client) NewBuildAttempt(projectKey string, lang Language) error {
+	req, err := cl.newRequest()
+	if err != nil {
+		return err
+	}
+
+	resp, err := req.Get(
+		Sf(
+			"https://lgtm.com/internal_api/v0.2/newBuildAttempt?projectKey=%s&language=%s&apiVersion=%s",
+			projectKey,
+			lang,
+			cl.conf.APIVersion,
+		))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, err := resp.Text()
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response CommonResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling: %s", err)
+	}
+	if response.Status != STATUS_SUCCESS_STRING {
+		return fmt.Errorf("status string is not success: %s", response.Status)
+	}
+	return nil
 }
