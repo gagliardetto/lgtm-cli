@@ -39,6 +39,7 @@ var (
 func main() {
 
 	var configFilepath string
+	var waitDuration time.Duration
 	var client *Client
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +129,11 @@ func main() {
 				Name:        "conf",
 				Usage:       "path to credentials.json file",
 				Destination: &configFilepath,
+			},
+			&cli.DurationFlag{
+				Name:        "wait",
+				Usage:       "Wait duration between requests.",
+				Destination: &waitDuration,
 			},
 		},
 		Before: func(c *cli.Context) error {
@@ -368,6 +374,8 @@ func main() {
 							protoRebuilder(proto.Key, repoURL)
 						} else {
 							follower(repoURL, int64(index+1), int64(totalToBeFollowed))
+							// sleep:
+							time.Sleep(waitDuration)
 						}
 					}
 					return nil
@@ -539,7 +547,6 @@ func main() {
 									Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
 								} else {
 									projectkeys = append(projectkeys, pr.Key)
-
 								}
 							}
 						}
@@ -594,6 +601,136 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "all, a",
 						Usage: "Query all followed projects.",
+					},
+				},
+			},
+			{
+				Name:  "rebuild",
+				Usage: "Rebuild followed projects.",
+				Action: func(c *cli.Context) error {
+
+					lang := c.String("lang")
+					if lang == "" {
+						panic("--lang not set")
+					}
+
+					took := NewTimer()
+					Infof("Getting list of followed projects...")
+					projects, protoProjects, err := client.ListFollowedProjects()
+					if err != nil {
+						panic(err)
+					}
+					Infof("took %s", took())
+					// TODO: rebuild protoprojects
+					_ = protoProjects
+
+					var projectsThatSupportTheLanguage int
+					for _, pr := range projects {
+						isSupportedLanguageForProject := pr.SupportsLanguage(lang)
+						if isSupportedLanguageForProject {
+							projectsThatSupportTheLanguage++
+						}
+					}
+					Infof(
+						ShakespeareBG("%v/%v projects support the %s language (%v do not)"),
+						projectsThatSupportTheLanguage,
+						len(projects),
+						lang,
+						len(projects)-projectsThatSupportTheLanguage,
+					)
+
+					force := c.Bool("F")
+					rebuildAll := c.Bool("all")
+
+					excluded := c.StringSlice("exclude")
+				RebuildLoop:
+					for _, pr := range projects {
+						pattern, isBlacklisted := HasMatch(pr.DisplayName, excluded)
+						if isBlacklisted && pattern != "" {
+							Warnf(
+								"%s is excluded (by pattern %q); skipping",
+								pr.DisplayName,
+								pattern,
+							)
+							continue RebuildLoop
+						}
+
+						isSupportedLanguageForProject := pr.SupportsLanguage(lang)
+						if isSupportedLanguageForProject && rebuildAll {
+							var rebuildOrNot bool
+							if !force {
+								rebuildOrNot, err = CLIAskYesNo(Sf(
+									"%s does already have language %s; Want to force new build attempt?",
+									pr.DisplayName,
+									lang,
+								))
+								if err != nil {
+									return err
+								}
+							}
+
+							doRebuild := force || rebuildOrNot
+
+							if doRebuild {
+								Infof(
+									"Trying to issue a new test rebuild for %s for %s language",
+									pr.DisplayName,
+									lang,
+								)
+								err := client.RequestTestBuild(pr.Slug, lang)
+								if err != nil {
+									Errorf(
+										"Failed to start a new test build attemp for %s for %s language: %s",
+										pr.DisplayName,
+										lang,
+										err,
+									)
+								} else {
+									// sleep:
+									time.Sleep(waitDuration)
+								}
+							}
+						}
+
+						if !isSupportedLanguageForProject {
+							Infof(
+								"%s does NOT have language %s; starting new build attempt",
+								pr.DisplayName,
+								lang,
+							)
+							err := client.NewBuildAttempt(pr.Key, lang)
+							if err != nil {
+								Errorf(
+									"Failed to issue a new build attemp for %s for %s language: %s",
+									pr.DisplayName,
+									lang,
+									err,
+								)
+							} else {
+								// sleep:
+								time.Sleep(waitDuration)
+							}
+						}
+					}
+
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "exclude, e",
+						Usage: "Exclude project(s) by glob; example: github/api",
+					},
+					&cli.StringFlag{
+						Name:  "lang, l",
+						Usage: "Language of the query project.",
+					},
+					&cli.BoolFlag{
+						Name:  "force, F",
+						Usage: "Follow what is not followed.",
+					},
+					&cli.BoolFlag{
+						Name:  "all",
+						Usage: "Rebuild all projects for specific language.",
 					},
 				},
 			},
@@ -1706,18 +1843,17 @@ func CountSlashes(s string) int {
 	return strings.Count(s, "/")
 }
 
-type Language string
-
 const (
-	LangGo         Language = "go"
-	LangCPP        Language = "cpp"
-	LangCSharp     Language = "csharp"
-	LangJava       Language = "java"
-	LangJavaScript Language = "javascript"
-	LangPython     Language = "python"
+	LangGo         = "go"
+	LangCPP        = "cpp"
+	LangCSharp     = "csharp"
+	LangJava       = "java"
+	LangJavaScript = "javascript"
+	LangPython     = "python"
 )
 
-func (cl *Client) NewBuildAttempt(projectKey string, lang Language) error {
+// NewBuildAttempt allows to attempt a build for a language NOT previously built.
+func (cl *Client) NewBuildAttempt(projectKey string, lang string) error {
 	req, err := cl.newRequest()
 	if err != nil {
 		return err
@@ -1728,6 +1864,53 @@ func (cl *Client) NewBuildAttempt(projectKey string, lang Language) error {
 			"https://lgtm.com/internal_api/v0.2/newBuildAttempt?projectKey=%s&language=%s&apiVersion=%s",
 			projectKey,
 			lang,
+			cl.conf.APIVersion,
+		))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, err := resp.Text()
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response CommonResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling: %s", err)
+	}
+	if response.Status != STATUS_SUCCESS_STRING {
+		return fmt.Errorf("status string is not success: %s", response.Status)
+	}
+	return nil
+}
+
+// RequestTestBuild triggers re-build for the specified language(s).
+func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error {
+	req, err := cl.newRequest()
+	if err != nil {
+		return err
+	}
+
+	resp, err := req.Get(
+		Sf(
+			"https://lgtm.com/internal_api/v0.2/"+
+				"urlIdentifier=%s&languages=%s&config=&apiVersion=%s",
+			urlIdentifier,
+			url.QueryEscape(formatStringArray(langs...)),
 			cl.conf.APIVersion,
 		))
 	if err != nil {
