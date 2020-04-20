@@ -28,18 +28,18 @@ cat $GOPATH/src/github.com/gagliardetto/lgtm-cli/kube_reduced.txt | cut -f1,2,3 
 - run query on projects
 
 # unfollow all projects
-lgtm-cli unfollow-all
+lgtm unfollow-all
 
 # unfollow one or more projects
-lgtm-cli unfollow kubernetes github/codeql-go \
+lgtm unfollow kubernetes github/codeql-go \
 	-f=projects.txt
 
 # follow one or more projects
-lgtm-cli follow kubernetes github/codeql-go \
+lgtm follow kubernetes github/codeql-go \
 	-f=projects.txt
 
 # run a query on multiple projects; -F means follow what is not followed
-lgtm-cli query \
+lgtm query \
 	kubernetes \
 	github/codeql-go \
 	-lang=go \
@@ -49,17 +49,28 @@ lgtm-cli query \
 	-F
 
 # run one or more queries on all projects
-lgtm-cli query-all \
+lgtm query-all \
 	-lang=go \
 	-q=/path/to/query-0.ql \
 	-q=/path/to/query-1.ql
 
 ---
 
-# -F means create list if not exists, follow projects if not followed
-lgtm-cli list-add "test-list" kubernetes github/codeql-go \
-	-f=projects.txt \
-	-F
+# list all followed projects:
+lgtm followed
+
+# list all lists:
+lgtm lists
+
+# create a new list:
+lgtm create-list name_of_list
+
+# list projects in a list:
+lgtm list name_of_list
+
+# add projects to a list:
+lgtm add-to-list --name="new_list" kubernetes \
+	-f=projects.txt
 
 # delete a list (no project will be unfollowed)
-lgtm-cli delete-list "test-list"
+lgtm delete-list "test-list"

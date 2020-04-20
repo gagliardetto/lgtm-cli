@@ -339,15 +339,6 @@ func main() {
 						panic(err)
 					}
 
-					alreadyFollowed := func(projectURL string) bool {
-						for _, pr := range projects {
-							alreadyFollowed := projectURL == pr.ExternalURL.URL
-							if alreadyFollowed {
-								return true
-							}
-						}
-						return false
-					}
 					IsProto := func(projectURL string) (*ProtoProject, bool) {
 						for _, pr := range protoProjects {
 							found := projectURL == pr.CloneURL
@@ -360,7 +351,8 @@ func main() {
 					toBeFollowed := make([]string, 0)
 					// exclude already-followed projects:
 					for _, repoURL := range repoURLs {
-						if !alreadyFollowed(repoURL) {
+						_, isFollowed := isAlreadyFollowed(projects, repoURL)
+						if !isFollowed {
 							toBeFollowed = append(toBeFollowed, repoURL)
 						}
 					}
@@ -471,15 +463,6 @@ func main() {
 						panic(err)
 					}
 
-					alreadyFollowed := func(projectURL string) (*Project, bool) {
-						for _, pr := range projects {
-							alreadyFollowed := projectURL == pr.ExternalURL.URL
-							if alreadyFollowed {
-								return pr, true
-							}
-						}
-						return nil, false
-					}
 					IsProto := func(projectURL string) (*ProtoProject, bool) {
 						for _, pr := range protoProjects {
 							found := projectURL == pr.CloneURL
@@ -494,7 +477,7 @@ func main() {
 						toBeFollowed := make([]string, 0)
 						// exclude already-followed projects:
 						for _, repoURL := range repoURLs {
-							if _, already := alreadyFollowed(repoURL); !already {
+							if _, already := isAlreadyFollowed(projects, repoURL); !already {
 								toBeFollowed = append(toBeFollowed, repoURL)
 							}
 						}
@@ -513,10 +496,6 @@ func main() {
 
 					excluded := c.StringSlice("exclude")
 
-					trimGithubPrefix := func(s string) string {
-						return strings.TrimPrefix(s, "https://github.com/")
-					}
-
 					// if no repos specified, and flag --all is true, then query all:
 					if len(repoURLs) == 0 && c.Bool("all") {
 						Infof("Gonna query all %v projects", len(projects))
@@ -534,7 +513,7 @@ func main() {
 							continue
 						}
 
-						pr, already := alreadyFollowed(repoURL)
+						pr, already := isAlreadyFollowed(projects, repoURL)
 						if !already {
 							Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
 						} else {
@@ -731,6 +710,333 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "all",
 						Usage: "Rebuild all projects for specific language.",
+					},
+				},
+			},
+			{
+				Name:  "followed",
+				Usage: "List all followed projects.",
+				Action: func(c *cli.Context) error {
+
+					took := NewTimer()
+					Infof("Getting list of followed projects...")
+					projects, protoProjects, err := client.ListFollowedProjects()
+					if err != nil {
+						panic(err)
+					}
+					Infof(
+						"%v projects and %v protoprojects; took %s",
+						len(projects),
+						len(protoProjects),
+						took(),
+					)
+
+					for _, proto := range protoProjects {
+						Sfln("%s", proto.CloneURL)
+					}
+					for _, pr := range projects {
+						Sfln("%s", pr.ExternalURL.URL)
+					}
+
+					return nil
+				},
+				Flags: []cli.Flag{},
+			},
+			{
+				Name:  "lists",
+				Usage: "List all lists of projects.",
+				Action: func(c *cli.Context) error {
+
+					took := NewTimer()
+					Infof("Getting list of lists...")
+					lists, err := client.ListProjectSelections()
+					if err != nil {
+						panic(err)
+					}
+					Infof("took %s", took())
+
+					for _, list := range lists {
+						Sfln(
+							"%s | %s",
+							list.Name,
+							list.Key,
+						)
+					}
+
+					return nil
+				},
+				Flags: []cli.Flag{},
+			},
+			{
+				Name:  "create-list",
+				Usage: "Create a new list.",
+				Action: func(c *cli.Context) error {
+
+					name := c.Args().First()
+					if name == "" {
+						return errors.New("name not provided")
+					}
+
+					took := NewTimer()
+					Infof("Creating new list with name %q...", name)
+					err := client.CreateProjectSelection(name)
+					if err != nil {
+						panic(err)
+					}
+					Infof(
+						"Created new list %q; took %s",
+						name,
+						took(),
+					)
+
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "name",
+						Usage: "Name of the list to be created.",
+					},
+				},
+			},
+			{
+				Name:  "delete-list",
+				Usage: "Delete a list.",
+				Action: func(c *cli.Context) error {
+
+					name := c.Args().First()
+					if name == "" {
+						return errors.New("name not provided")
+					}
+
+					took := NewTimer()
+					Infof("Deleting list with name %q...", name)
+					err := client.DeleteProjectSelection(name)
+					if err != nil {
+						panic(err)
+					}
+					Infof(
+						"Deleted list %q; took %s",
+						name,
+						took(),
+					)
+
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "name",
+						Usage: "Name of the list to be created.",
+					},
+				},
+			},
+			{
+				Name:  "list",
+				Usage: "List projects inside a list by its name.",
+				Action: func(c *cli.Context) error {
+
+					name := c.Args().First()
+					if name == "" {
+						return errors.New("name not provided")
+					}
+
+					took := NewTimer()
+					Infof("Getting projects of %q list...", name)
+					resp, err := client.ListProjectsInSelection(name)
+					if err != nil {
+						panic(err)
+					}
+					Infof(
+						"List contains %v projects; took %s",
+						len(resp.ProjectKeys),
+						took(),
+					)
+
+					if len(resp.ProjectKeys) > 100 {
+						Infof("Getting list of followed projects...")
+						took = NewTimer()
+						projects, protoProjects, err := client.ListFollowedProjects()
+						if err != nil {
+							panic(err)
+						}
+						Infof("took %s", took())
+
+						getProjectByKey := func(key string) *Project {
+							for _, pr := range projects {
+								if pr.Key == key {
+									return pr
+								}
+							}
+							return nil
+						}
+
+						getProtoProjectByKey := func(key string) *ProtoProject {
+							for _, proto := range protoProjects {
+								if proto.Key == key {
+									return proto
+								}
+							}
+							return nil
+						}
+
+						for _, projectKey := range resp.ProjectKeys {
+							project := getProjectByKey(projectKey)
+							if project == nil {
+								proto := getProtoProjectByKey(projectKey)
+								if proto == nil {
+									gotProjectResp, err := client.GetProjectsByKey(projectKey)
+									if err != nil {
+										Errorf(
+											"error while client.GetProjectsByKey for project %s: %s",
+											projectKey,
+											err,
+										)
+									} else {
+
+										prj := gotProjectResp.GetProject(projectKey)
+										if prj != nil {
+											Sfln(
+												"%s",
+												prj.ExternalURL.URL,
+											)
+										} else {
+											Errorf("no project/protoproject found for key %s", projectKey)
+										}
+
+									}
+								} else {
+									Sfln(
+										"%s",
+										proto.CloneURL,
+									)
+								}
+							} else {
+								Sfln(
+									"%s",
+									project.ExternalURL.URL,
+								)
+							}
+						}
+					} else {
+						gotProjectResp, err := client.GetProjectsByKey(resp.ProjectKeys...)
+						if err != nil {
+							Errorf(
+								"error while client.GetProjectsByKey for projects %s: %s",
+								resp.ProjectKeys,
+								err,
+							)
+						}
+
+						for _, pr := range gotProjectResp.FullProjects {
+							Sfln(
+								"%s",
+								pr.ExternalURL.URL,
+							)
+						}
+					}
+
+					return nil
+				},
+				Flags: []cli.Flag{},
+			},
+			{
+				Name:  "add-to-list",
+				Usage: "Add followed projects to a list.",
+				Action: func(c *cli.Context) error {
+
+					repoURLsRaw := []string(c.Args())
+					hasRepoList := c.IsSet("f")
+					if hasRepoList {
+						repoListFilepaths := c.StringSlice("f")
+						for _, path := range repoListFilepaths {
+							err := ReadConfigLinesAsString(path, func(line string) bool {
+								repoURLsRaw = append(repoURLsRaw, line)
+								return true
+							})
+							if err != nil {
+								return err
+							}
+						}
+					}
+					repoURLsRaw = Deduplicate(repoURLsRaw)
+
+					repoURLs := make([]string, 0)
+					for _, raw := range repoURLsRaw {
+						owner, isWholeUser, err := IsUserOnly(raw)
+						if err != nil {
+							panic(err)
+						}
+						if isWholeUser {
+							Debugf("Getting list of repos for %s ...", owner)
+							repos, err := GithubGetRepoList(owner)
+							if err != nil {
+								panic(fmt.Errorf("error while getting repo list for user %q: %s", owner, err))
+							}
+							Debugf("%s has %v repos", owner, len(repos))
+							for _, repo := range repos {
+								//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
+								repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
+							}
+						} else {
+							parsed, err := ParseGitURL(raw, false)
+							if err != nil {
+								panic(err)
+							}
+							repoURLs = append(repoURLs, parsed.URL())
+						}
+					}
+
+					///
+					Infof("Getting list of followed projects...")
+					took := NewTimer()
+					projects, protoProjects, err := client.ListFollowedProjects()
+					if err != nil {
+						panic(err)
+					}
+					Infof("took %s", took())
+
+					name := c.String("name")
+					took = NewTimer()
+					Infof("Getting projects of %q list...", name)
+					resp, err := client.ListProjectsInSelection(name)
+					if err != nil {
+						panic(err)
+					}
+					Infof("took %s", took())
+
+					projectKeys := make([]string, 0)
+					for _, repoURL := range repoURLs {
+						project, isFollowed := isAlreadyFollowed(projects, repoURL)
+						protoProject, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
+						if !isFollowed && !isFollowedProto {
+							Warnf(
+								"project %s is not followed",
+								trimGithubPrefix(repoURL),
+							)
+						}
+
+						if isFollowed && project != nil && !SliceContains(resp.ProjectKeys, project.Key) {
+							projectKeys = append(projectKeys, project.Key)
+						}
+						if isFollowedProto && protoProject != nil && !SliceContains(resp.ProjectKeys, protoProject.Key) {
+							projectKeys = append(projectKeys, protoProject.Key)
+						}
+					}
+
+					Infof(
+						"Adding %v projects to list %q...",
+						len(projectKeys),
+						name,
+					)
+					err = client.AddProjectToSelection(resp.Identity.Key, projectKeys...)
+					if err != nil {
+						panic(err)
+					}
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "name",
+						Usage: "Name of the list to which the projects will be added to.",
 					},
 				},
 			},
@@ -1943,4 +2249,175 @@ func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error 
 		return fmt.Errorf("status string is not success: %s", response.Status)
 	}
 	return nil
+}
+
+type GetProjectLatestStateStatsResponse struct {
+	Status string                `json:"status"`
+	Data   *LatestStateStatsData `json:"data"`
+}
+type Rating struct {
+	Score    float64 `json:"score"`
+	Grade    string  `json:"grade"`
+	RawGrade float64 `json:"rawGrade"`
+}
+type RevisionName struct {
+	Value       string `json:"value"`
+	PrettyValue string `json:"prettyValue"`
+}
+type SecurityAwareness struct {
+	Score             float64 `json:"score"`
+	NumSecurityAlerts int     `json:"numSecurityAlerts"`
+	Grade             string  `json:"grade"`
+	Percentile        float64 `json:"percentile"`
+}
+type LanguageStates struct {
+	Lang              string            `json:"lang"`
+	SnapshotDate      int64             `json:"snapshotDate"`
+	TotalAlerts       int               `json:"totalAlerts"`
+	TotalLines        int               `json:"totalLines"`
+	Rating            Rating            `json:"rating,omitempty"`
+	RevisionName      RevisionName      `json:"revisionName"`
+	SecurityAwareness SecurityAwareness `json:"securityAwareness,omitempty"`
+}
+type LatestStateStatsData struct {
+	NumContributors int              `json:"numContributors"`
+	LanguageStates  []LanguageStates `json:"languageStates"`
+}
+
+func (cl *Client) GetProjectLatestStateStats(projectKey string) (*LatestStateStatsData, error) {
+	req, err := cl.newRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := req.Get(
+		Sf(
+			"https://lgtm.com/internal_api/v0.2/getProjectLatestStateStats?key=%s&apiVersion=%s",
+			projectKey,
+			cl.conf.APIVersion,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, err := resp.Text()
+		if err != nil {
+			panic(err)
+		}
+		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return nil, fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response GetProjectLatestStateStatsResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+	}
+
+	if response.Status != STATUS_SUCCESS_STRING {
+		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+	}
+
+	return response.Data, nil
+}
+
+type GetProjectsByKeyResponse struct {
+	Status string                        `json:"status"`
+	Data   *GetProjectsByKeyResponseData `json:"data"`
+}
+
+type GetProjectsByKeyResponseData struct {
+	FullProjects map[string]*Project    `json:"fullProjects"`
+	AnonProjects map[string]interface{} `json:"anonProjects"`
+}
+
+func (data *GetProjectsByKeyResponseData) GetProject(key string) *Project {
+	val, ok := data.FullProjects[key]
+	if ok {
+		return val
+	}
+	return nil
+}
+
+func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseData, error) {
+	req, err := cl.newRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := req.Get(
+		Sf(
+			"https://lgtm.com/internal_api/v0.2/getProjectsByKey?keys=%s&apiVersion=%s",
+			formatStringArray(keys...),
+			cl.conf.APIVersion,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, err := resp.Text()
+		if err != nil {
+			panic(err)
+		}
+		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return nil, fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response GetProjectsByKeyResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+	}
+
+	if response.Status != STATUS_SUCCESS_STRING {
+		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+	}
+
+	return response.Data, nil
+}
+func isAlreadyFollowed(projects []*Project, projectURL string) (*Project, bool) {
+	for _, pr := range projects {
+		alreadyFollowed := projectURL == pr.ExternalURL.URL
+		if alreadyFollowed {
+			return pr, true
+		}
+	}
+	return nil, false
+}
+func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*ProtoProject, bool) {
+	// add suffix:
+	if !strings.HasSuffix(projectURL, ".git") {
+		projectURL = projectURL + ".git"
+	}
+	for _, pr := range protoProjects {
+		alreadyFollowed := projectURL == pr.CloneURL
+		if alreadyFollowed {
+			return pr, true
+		}
+	}
+	return nil, false
+}
+
+func trimGithubPrefix(s string) string {
+	return strings.TrimPrefix(s, "https://github.com/")
 }
