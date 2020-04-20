@@ -457,86 +457,69 @@ func main() {
 						}
 					}
 
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-
-					IsProto := func(projectURL string) (*ProtoProject, bool) {
-						for _, pr := range protoProjects {
-							found := projectURL == pr.CloneURL
-							if found {
-								return pr, true
-							}
-						}
-						return nil, false
-					}
-					force := c.Bool("F")
-					if force {
-						toBeFollowed := make([]string, 0)
-						// exclude already-followed projects:
-						for _, repoURL := range repoURLs {
-							if _, already := isAlreadyFollowed(projects, repoURL); !already {
-								toBeFollowed = append(toBeFollowed, repoURL)
-							}
-						}
-						totalToBeFollowed := len(toBeFollowed)
-						Infof("Will follow %v projects (NOTE: might not be availabe for query immediately)...", totalToBeFollowed)
-						// follow repos:
-						for index, repoURL := range toBeFollowed {
-							proto, isProto := IsProto(repoURL)
-							if isProto && force {
-								protoRebuilder(proto.Key, repoURL)
-							} else {
-								follower(repoURL, int64(index+1), int64(totalToBeFollowed))
-							}
-						}
-					}
-
-					excluded := c.StringSlice("exclude")
-
-					// if no repos specified, and flag --all is true, then query all:
-					if len(repoURLs) == 0 && c.Bool("all") {
-						Infof("Gonna query all %v projects", len(projects))
-						for _, pr := range projects {
-							repoURLs = append(repoURLs, pr.ExternalURL.URL)
-						}
-					}
-
 					projectkeys := make([]string, 0)
-					for _, repoURL := range repoURLs {
-
-						_, isProto := IsProto(repoURL)
-						if isProto {
-							Warnf("%s is proto; skipping", trimGithubPrefix(repoURL))
-							continue
+					if len(repoURLs) > 0 {
+						Infof("Getting list of followed projects...")
+						projects, protoProjects, err := client.ListFollowedProjects()
+						if err != nil {
+							panic(err)
 						}
 
-						pr, already := isAlreadyFollowed(projects, repoURL)
-						if !already {
-							Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
-						} else {
-							isSupportedLanguageForProject := pr.SupportsLanguage(lang)
-							if !isSupportedLanguageForProject {
-								Warnf("%s does not have language %s; skipping", trimGithubPrefix(repoURL), lang)
+						IsProto := func(projectURL string) (*ProtoProject, bool) {
+							for _, pr := range protoProjects {
+								found := projectURL == pr.CloneURL
+								if found {
+									return pr, true
+								}
+							}
+							return nil, false
+						}
+
+						excluded := c.StringSlice("exclude")
+
+						// if no repos specified, and flag --all is true, then query all:
+						if c.Bool("all") {
+							Infof("Gonna query all %v projects", len(projects))
+							for _, pr := range projects {
+								repoURLs = append(repoURLs, pr.ExternalURL.URL)
+							}
+						}
+						repoURLs = Deduplicate(repoURLs)
+
+						for _, repoURL := range repoURLs {
+
+							_, isProto := IsProto(repoURL)
+							if isProto {
+								Warnf("%s is proto; skipping", trimGithubPrefix(repoURL))
+								continue
+							}
+
+							pr, already := isAlreadyFollowed(projects, repoURL)
+							if !already {
+								Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
 							} else {
-								isExcluded := SliceContains(excluded, pr.DisplayName)
-								if isExcluded {
-									Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
+								isSupportedLanguageForProject := pr.SupportsLanguage(lang)
+								if !isSupportedLanguageForProject {
+									Warnf("%s does not have language %s; skipping", trimGithubPrefix(repoURL), lang)
 								} else {
-									projectkeys = append(projectkeys, pr.Key)
+									isExcluded := SliceContains(excluded, pr.DisplayName)
+									if isExcluded {
+										Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
+									} else {
+										projectkeys = append(projectkeys, pr.Key)
+									}
 								}
 							}
 						}
 					}
 
+					projectListKeys := c.StringSlice("list-key")
 					Infof(
-						"Sending query %q to be run on %v projects...",
+						"Sending query %q to be run on %v projects and %v lists...",
 						queryFilepath,
 						len(projectkeys),
+						len(projectListKeys),
 					)
-					projectListKeys := c.StringSlice("list-key")
 					queryConfig := &QueryConfig{
 						Lang:                 lang,
 						ProjectKeys:          projectkeys,
@@ -572,10 +555,6 @@ func main() {
 					&cli.StringSliceFlag{
 						Name:  "repos, f",
 						Usage: "Filepath to text file with list of repos.",
-					},
-					&cli.BoolFlag{
-						Name:  "force, F",
-						Usage: "Follow what is not followed.",
 					},
 					&cli.BoolFlag{
 						Name:  "all, a",

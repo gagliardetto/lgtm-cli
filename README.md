@@ -38,7 +38,7 @@ lgtm unfollow kubernetes github/codeql-go \
 lgtm follow kubernetes github/codeql-go \
 	-f=projects.txt
 
-# run a query on multiple projects; -F means follow what is not followed
+# run a query on multiple projects
 lgtm query \
 	kubernetes \
 	github/codeql-go \
@@ -48,11 +48,11 @@ lgtm query \
 	-q=/path/to/query-0.ql \
 	-F
 
-# run one or more queries on all projects
-lgtm query-all \
+# run a query on one or more project lists:
+lgtm query \
+	--list-key=1234567890 \
 	-lang=go \
-	-q=/path/to/query-0.ql \
-	-q=/path/to/query-1.ql
+	-q=./hello-world.ql
 
 ---
 
