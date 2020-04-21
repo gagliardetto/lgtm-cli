@@ -715,7 +715,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("took %s", took())
+					Infof("%v lists; took %s", len(lists), took())
 
 					for _, list := range lists {
 						Sfln(
