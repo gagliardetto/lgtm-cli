@@ -38,6 +38,9 @@ lgtm unfollow kubernetes github/codeql-go \
 lgtm follow kubernetes github/codeql-go \
 	-f=projects.txt
 
+# rebuild for a specific language
+lgtm --wait=30s rebuild --lang=go
+
 # run a query on multiple projects
 lgtm query \
 	kubernetes \

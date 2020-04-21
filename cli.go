@@ -65,7 +65,7 @@ func main() {
 			)
 		} else {
 			Successf(
-				"Successfully unfollowed %s; progress is %s (%v/%v)",
+				" Successfully unfollowed %s; progress is %s (%v/%v)",
 				name,
 				GetFormattedPercent(done, tot),
 				done,
@@ -95,10 +95,10 @@ func main() {
 			if prj.IsKnown() {
 				knownString = "known"
 			} else {
-				knownString = "new"
+				knownString = "[NEW]"
 			}
 			Successf(
-				"Successfully followed %s %s; progress is %s (%v/%v)",
+				" Successfully followed %s %s; progress is %s (%v/%v)",
 				knownString,
 				u,
 				GetFormattedPercent(done, tot),
@@ -344,6 +344,7 @@ func main() {
 					}
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
+					followedNew := 0
 					// follow repos:
 					for index, repoURL := range toBeFollowed {
 						envelope := follower(repoURL, int64(index+1), int64(totalToBeFollowed))
@@ -352,11 +353,13 @@ func main() {
 							// sleep to avoid triggering too many new builds:
 							isNew := !envelope.IsKnown()
 							if isNew {
+								followedNew++
 								// sleep:
 								time.Sleep(waitDuration)
 							}
 						}
 					}
+					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
 					return nil
 				},
 				Flags: []cli.Flag{
@@ -584,6 +587,7 @@ func main() {
 					rebuildAll := c.Bool("all")
 
 					excluded := c.StringSlice("exclude")
+
 				RebuildLoop:
 					for _, pr := range projects {
 						pattern, isBlacklisted := HasMatch(pr.DisplayName, excluded)
@@ -597,6 +601,28 @@ func main() {
 						}
 
 						isSupportedLanguageForProject := pr.SupportsLanguage(lang)
+
+						// rebuild if a project does not support the specified language.
+						if !isSupportedLanguageForProject {
+							Infof(
+								"%s does NOT have language %s; starting new build attempt",
+								pr.DisplayName,
+								lang,
+							)
+							err := client.NewBuildAttempt(pr.Key, lang)
+							if err != nil {
+								Errorf(
+									"Failed to issue a new build attemp for %s for %s language: %s",
+									pr.DisplayName,
+									lang,
+									err,
+								)
+							} else {
+								// sleep:
+								time.Sleep(waitDuration)
+							}
+						}
+
 						if isSupportedLanguageForProject && rebuildAll {
 							var rebuildOrNot bool
 							if !force {
@@ -633,25 +659,6 @@ func main() {
 							}
 						}
 
-						if !isSupportedLanguageForProject {
-							Infof(
-								"%s does NOT have language %s; starting new build attempt",
-								pr.DisplayName,
-								lang,
-							)
-							err := client.NewBuildAttempt(pr.Key, lang)
-							if err != nil {
-								Errorf(
-									"Failed to issue a new build attemp for %s for %s language: %s",
-									pr.DisplayName,
-									lang,
-									err,
-								)
-							} else {
-								// sleep:
-								time.Sleep(waitDuration)
-							}
-						}
 					}
 
 					return nil
@@ -813,73 +820,26 @@ func main() {
 						took(),
 					)
 
-					if len(resp.ProjectKeys) > 100 {
-						Infof("Getting list of followed projects...")
-						took = NewTimer()
-						projects, protoProjects, err := client.ListFollowedProjects()
-						if err != nil {
-							panic(err)
-						}
-						Infof("took %s", took())
-
-						getProjectByKey := func(key string) *Project {
-							for _, pr := range projects {
-								if pr.Key == key {
-									return pr
-								}
-							}
-							return nil
-						}
-
-						getProtoProjectByKey := func(key string) *ProtoProject {
-							for _, proto := range protoProjects {
-								if proto.Key == key {
-									return proto
-								}
-							}
-							return nil
-						}
-
-						for _, projectKey := range resp.ProjectKeys {
-							project := getProjectByKey(projectKey)
-							if project == nil {
-								proto := getProtoProjectByKey(projectKey)
-								if proto == nil {
-									gotProjectResp, err := client.GetProjectsByKey(projectKey)
-									if err != nil {
-										Errorf(
-											"error while client.GetProjectsByKey for project %s: %s",
-											projectKey,
-											err,
-										)
-									} else {
-
-										prj := gotProjectResp.GetProject(projectKey)
-										if prj != nil {
-											Sfln(
-												"%s",
-												prj.ExternalURL.URL,
-											)
-										} else {
-											Errorf("no project/protoproject found for key %s", projectKey)
-										}
-
-									}
-								} else {
-									Sfln(
-										"%s",
-										proto.CloneURL,
-									)
-								}
-							} else {
-								Sfln(
-									"%s",
-									project.ExternalURL.URL,
-								)
-							}
-						}
+					projectCount := len(resp.ProjectKeys)
+					chunkSize := 100
+					partsNumber := projectCount / chunkSize
+					if projectCount < chunkSize {
+						partsNumber = 1
 					} else {
-						gotProjectResp, err := client.GetProjectsByKey(resp.ProjectKeys...)
+						partsNumber++
+					}
+
+					chunks := SplitStringSlice(partsNumber, resp.ProjectKeys)
+
+					for chunkIndex, chunk := range chunks {
+						Infof(
+							"Getting list %q; chunk %v/%v...",
+							name,
+							chunkIndex+1,
+							len(chunks),
+						)
+						took = NewTimer()
+						gotProjectResp, err := client.GetProjectsByKey(chunk...)
 						if err != nil {
 							Errorf(
 								"error while client.GetProjectsByKey for projects %s: %s",
@@ -887,6 +847,7 @@ func main() {
 								err,
 							)
 						}
+						Infof("took %s", took())
 
 						for _, pr := range gotProjectResp.FullProjects {
 							Sfln(
@@ -980,7 +941,8 @@ func main() {
 							projectKeys = append(projectKeys, project.Key)
 						}
 						if isFollowedProto && protoProject != nil && !SliceContains(resp.ProjectKeys, protoProject.Key) {
-							projectKeys = append(projectKeys, protoProject.Key)
+							// TODO: fix
+							//projectKeys = append(projectKeys, protoProject.Key)
 						}
 					}
 
@@ -999,6 +961,10 @@ func main() {
 					&cli.StringFlag{
 						Name:  "name",
 						Usage: "Name of the list to which the projects will be added to.",
+					},
+					&cli.StringSliceFlag{
+						Name:  "repos, f",
+						Usage: "Filepath to text file with list of repos.",
 					},
 				},
 			},
@@ -2344,12 +2310,16 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 }
 func isAlreadyFollowedProject(projects []*Project, projectURL string) (*Project, bool) {
 	for _, pr := range projects {
-		alreadyFollowed := projectURL == pr.ExternalURL.URL
+		alreadyFollowed := ToLower(projectURL) == ToLower(pr.ExternalURL.URL)
 		if alreadyFollowed {
 			return pr, true
 		}
 	}
 	return nil, false
+}
+
+func ToLower(s string) string {
+	return strings.ToLower(s)
 }
 func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*ProtoProject, bool) {
 	// add suffix:
@@ -2357,7 +2327,7 @@ func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*
 		projectURL = projectURL + ".git"
 	}
 	for _, pr := range protoProjects {
-		alreadyFollowed := projectURL == pr.CloneURL
+		alreadyFollowed := ToLower(projectURL) == ToLower(pr.CloneURL)
 		if alreadyFollowed {
 			return pr, true
 		}
