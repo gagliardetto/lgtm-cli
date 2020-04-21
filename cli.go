@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c-bata/go-prompt"
 	ghc "github.com/d1ss0lv3/ciccio/gh-client"
 	"github.com/gagliardetto/bianconiglio"
 	"github.com/gagliardetto/request"
@@ -75,7 +74,7 @@ func main() {
 		}
 	}
 
-	follower := func(u string, done int64, tot int64) {
+	follower := func(u string, done int64, tot int64) *Envelope {
 		Infof(
 			"Following %s; progress is %s (%v/%v)",
 			u,
@@ -84,7 +83,7 @@ func main() {
 			tot,
 		)
 
-		err := client.FollowProject(u)
+		prj, err := client.FollowProject(u)
 		if err != nil {
 			Errorf(
 				"error while following project %s : %s",
@@ -92,36 +91,24 @@ func main() {
 				err,
 			)
 		} else {
+			var knownString string
+			if prj.IsKnown() {
+				knownString = "known"
+			} else {
+				knownString = "new"
+			}
 			Successf(
-				"Successfully followed %s; progress is %s (%v/%v)",
+				"Successfully followed %s %s; progress is %s (%v/%v)",
+				knownString,
 				u,
 				GetFormattedPercent(done, tot),
 				done,
 				tot,
 			)
 		}
+		return prj
 	}
 
-	protoRebuilder := func(key string, name string) {
-		Infof(
-			"Forcing rebuild of proto project %s",
-			name,
-		)
-
-		err := client.RebuildProtoProject(key)
-		if err != nil {
-			Errorf(
-				"error while forcing rebuild of proto project %s : %s",
-				name,
-				err,
-			)
-		} else {
-			Successf(
-				"Successfully forced rebuild of proto project %s",
-				name,
-			)
-		}
-	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	app := &cli.App{
 		Flags: []cli.Flag{
@@ -182,11 +169,13 @@ func main() {
 					// - get list of all followed
 					// - unfollow each
 
+					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
 					if err != nil {
 						panic(err)
 					}
+					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
 					totalProjects := len(projects)
 					totalProtoProjects := len(protoProjects)
 					total := totalProjects + totalProtoProjects
@@ -253,11 +242,13 @@ func main() {
 						}
 					}
 
+					took := NewTimer()
 					Infof("Getting list of followed projects...")
-					projects, _, err := client.ListFollowedProjects()
+					projects, protoProjects, err := client.ListFollowedProjects()
 					if err != nil {
 						panic(err)
 					}
+					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
 					toBeUnfollowed := make([]*Project, 0)
 					// match repos against list of repos followed:
@@ -333,26 +324,21 @@ func main() {
 						}
 					}
 
+					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
 					if err != nil {
 						panic(err)
 					}
+					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
-					IsProto := func(projectURL string) (*ProtoProject, bool) {
-						for _, pr := range protoProjects {
-							found := projectURL == pr.CloneURL
-							if found {
-								return pr, true
-							}
-						}
-						return nil, false
-					}
 					toBeFollowed := make([]string, 0)
 					// exclude already-followed projects:
 					for _, repoURL := range repoURLs {
-						_, isFollowed := isAlreadyFollowed(projects, repoURL)
-						if !isFollowed {
+						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
+						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
+						isNOTFollowed := !isFollowed && !isFollowedProto
+						if isNOTFollowed {
 							toBeFollowed = append(toBeFollowed, repoURL)
 						}
 					}
@@ -360,14 +346,15 @@ func main() {
 					Infof("Will follow %v projects...", totalToBeFollowed)
 					// follow repos:
 					for index, repoURL := range toBeFollowed {
-						forceRebuild := c.Bool("F")
-						proto, isProto := IsProto(repoURL)
-						if isProto && forceRebuild {
-							protoRebuilder(proto.Key, repoURL)
-						} else {
-							follower(repoURL, int64(index+1), int64(totalToBeFollowed))
-							// sleep:
-							time.Sleep(waitDuration)
+						envelope := follower(repoURL, int64(index+1), int64(totalToBeFollowed))
+						if envelope != nil {
+							// if the project was NOT already known to lgtm.com,
+							// sleep to avoid triggering too many new builds:
+							isNew := !envelope.IsKnown()
+							if isNew {
+								// sleep:
+								time.Sleep(waitDuration)
+							}
 						}
 					}
 					return nil
@@ -376,10 +363,6 @@ func main() {
 					&cli.StringSliceFlag{
 						Name:  "repos, f",
 						Usage: "Filepath to text file with list of repos.",
-					},
-					&cli.BoolFlag{
-						Name:  "force, F",
-						Usage: "Force re-building proto-projects.",
 					},
 				},
 			},
@@ -494,7 +477,7 @@ func main() {
 								continue
 							}
 
-							pr, already := isAlreadyFollowed(projects, repoURL)
+							pr, already := isAlreadyFollowedProject(projects, repoURL)
 							if !already {
 								Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
 							} else {
@@ -578,7 +561,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("took %s", took())
+					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
 					// TODO: rebuild protoprojects
 					_ = protoProjects
 
@@ -984,7 +967,7 @@ func main() {
 
 					projectKeys := make([]string, 0)
 					for _, repoURL := range repoURLs {
-						project, isFollowed := isAlreadyFollowed(projects, repoURL)
+						project, isFollowed := isAlreadyFollowedProject(projects, repoURL)
 						protoProject, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
 						if !isFollowed && !isFollowedProto {
 							Warnf(
@@ -1095,33 +1078,6 @@ func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 	}
 
 	return repoList, nil
-}
-
-func realProjectListToSuggest(projects []*Project) []prompt.Suggest {
-	suggests := make([]prompt.Suggest, 0)
-	for _, prj := range projects {
-		sugg := prompt.Suggest{
-			Text:        prj.DisplayName,
-			Description: prj.ExternalURL.URL,
-		}
-		suggests = append(suggests, sugg)
-	}
-
-	return suggests
-}
-func completer(d prompt.Document) []prompt.Suggest {
-	s := []prompt.Suggest{
-		{Text: "users", Description: "Store the username and age"},
-		{Text: "articles", Description: "Store the article text posted by user"},
-		{Text: "comments", Description: "Store the text commented to articles"},
-	}
-	return prompt.FilterContains(s, d.GetWordBeforeCursor(), true)
-}
-
-func completerFunc(items []prompt.Suggest) func(prompt.Document) []prompt.Suggest {
-	return func(d prompt.Document) []prompt.Suggest {
-		return prompt.FilterContains(items, d.GetWordBeforeCursor(), true)
-	}
 }
 
 func LoadConfigFromFile(filepath string) (*Config, error) {
@@ -1305,57 +1261,16 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 	return nil
 }
 
-func (cl *Client) RebuildProtoProject(key string) error {
-
-	req, err := cl.newRequest()
-	if err != nil {
-		return err
-	}
-	req.Data = map[string]string{
-		"config":           "",
-		"protoproject_key": key,
-		"apiVersion":       cl.conf.APIVersion,
-	}
-
-	resp, err := req.Post("https://lgtm.com/internal_api/v0.2/rebuildProtoproject")
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
-	}
-
-	reader, closer, err := resp.DecompressedReaderFromPool()
-	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
-	}
-	var response CommonResponse
-	err = func() error {
-		defer closer()
-		defer resp.Body.Close()
-		decoder := json.NewDecoder(reader)
-
-		return decoder.Decode(&response)
-	}()
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
-	}
-
-	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
-	}
-
-	return nil
+type FollowProjectResponse struct {
+	Status string    `json:"status"`
+	Data   *Envelope `json:"data"`
 }
-func (cl *Client) FollowProject(u string) error {
+
+func (cl *Client) FollowProject(u string) (*Envelope, error) {
 
 	req, err := cl.newRequest()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Data = map[string]string{
 		"url":        u,
@@ -1364,21 +1279,21 @@ func (cl *Client) FollowProject(u string) error {
 
 	resp, err := req.Post("https://lgtm.com/internal_api/v0.2/followProject")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, err := resp.Text()
 		if err != nil {
 			panic(err)
 		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response FollowProjectResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -1387,14 +1302,14 @@ func (cl *Client) FollowProject(u string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %s", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, fmt.Errorf("status string is not success: %s", response.Status)
 	}
 
-	return nil
+	return response.Data, nil
 }
 
 func (cl *Client) DeleteProjectSelection(name string) error {
@@ -1937,6 +1852,12 @@ func (env *Envelope) MustGetProject() *Project {
 	return env.parsedproject
 }
 
+// IsKnown returns whether the projects was already known to lgtm.com
+func (env *Envelope) IsKnown() bool {
+	isFirstBuild := env.MustGetProject() == nil && env.MustGetProtoProject() != nil
+	return !isFirstBuild
+}
+
 func (env *Envelope) MustGetProtoProject() *ProtoProject {
 	if env.parsedProtoProject != nil {
 		return env.parsedProtoProject
@@ -2126,6 +2047,53 @@ func ParseGitURL(rawURL string, mustHaveRepoName bool) (*GitURL, error) {
 }
 func CountSlashes(s string) int {
 	return strings.Count(s, "/")
+}
+
+func (cl *Client) RebuildProtoProject(key string) error {
+
+	req, err := cl.newRequest()
+	if err != nil {
+		return err
+	}
+	req.Data = map[string]string{
+		"config":           "",
+		"protoproject_key": key,
+		"apiVersion":       cl.conf.APIVersion,
+	}
+
+	resp, err := req.Post("https://lgtm.com/internal_api/v0.2/rebuildProtoproject")
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, err := resp.Text()
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response CommonResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling: %s", err)
+	}
+
+	if response.Status != STATUS_SUCCESS_STRING {
+		return fmt.Errorf("status string is not success: %s", response.Status)
+	}
+
+	return nil
 }
 
 const (
@@ -2374,7 +2342,7 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 
 	return response.Data, nil
 }
-func isAlreadyFollowed(projects []*Project, projectURL string) (*Project, bool) {
+func isAlreadyFollowedProject(projects []*Project, projectURL string) (*Project, bool) {
 	for _, pr := range projects {
 		alreadyFollowed := projectURL == pr.ExternalURL.URL
 		if alreadyFollowed {
