@@ -44,7 +44,7 @@ func main() {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	unfollower := func(isProto bool, key string, name string, done int64, tot int64) {
 		Infof(
-			"Unfollowing %s; progress is %s (%v/%v)",
+			"[%s](%v/%v) Unfollowing %s",
 			name,
 			GetFormattedPercent(done, tot),
 			done,
@@ -65,22 +65,22 @@ func main() {
 			)
 		} else {
 			Successf(
-				" Successfully unfollowed %s; progress is %s (%v/%v)",
-				name,
+				" [%s](%v/%v) Successfully unfollowed %s",
 				GetFormattedPercent(done, tot),
 				done,
 				tot,
+				name,
 			)
 		}
 	}
 
 	follower := func(u string, done int64, tot int64) *Envelope {
 		Infof(
-			"Following %s; progress is %s (%v/%v)",
-			u,
+			"[%s](%v/%v) Following %s",
 			GetFormattedPercent(done, tot),
 			done,
 			tot,
+			u,
 		)
 
 		prj, err := client.FollowProject(u)
@@ -91,19 +91,19 @@ func main() {
 				err,
 			)
 		} else {
-			var knownString string
+			var knownOrNew string
 			if prj.IsKnown() {
-				knownString = "known"
+				knownOrNew = OrangeBG("[KNO]")
 			} else {
-				knownString = "[NEW]"
+				knownOrNew = LimeBG(Bold("[NEW]"))
 			}
 			Successf(
-				" Successfully followed %s %s; progress is %s (%v/%v)",
-				knownString,
-				u,
+				" [%s](%v/%v) Successfully followed %s %s",
 				GetFormattedPercent(done, tot),
 				done,
 				tot,
+				knownOrNew,
+				u,
 			)
 		}
 		return prj
