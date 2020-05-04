@@ -44,7 +44,7 @@ func main() {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	unfollower := func(isProto bool, key string, name string, done int64, tot int64) {
 		Infof(
-			"[%s](%v/%v) Unfollowing %s",
+			"[%s](%v/%v) Unfollowing %s ...",
 			name,
 			GetFormattedPercent(done, tot),
 			done,
@@ -65,7 +65,7 @@ func main() {
 			)
 		} else {
 			Successf(
-				" [%s](%v/%v) Successfully unfollowed %s",
+				"[%s](%v/%v) Unfollowed %s",
 				GetFormattedPercent(done, tot),
 				done,
 				tot,
@@ -95,10 +95,10 @@ func main() {
 			if prj.IsKnown() {
 				knownOrNew = OrangeBG("[KNO]")
 			} else {
-				knownOrNew = LimeBG(Bold("[NEW]"))
+				knownOrNew = LimeBG("[NEW]")
 			}
 			Successf(
-				" [%s](%v/%v) Successfully followed %s %s",
+				"[%s](%v/%v) Followed %s %s",
 				GetFormattedPercent(done, tot),
 				done,
 				tot,
@@ -2322,12 +2322,14 @@ func ToLower(s string) string {
 	return strings.ToLower(s)
 }
 func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*ProtoProject, bool) {
-	// add suffix:
+	withDotGitSuffix := ""
 	if !strings.HasSuffix(projectURL, ".git") {
-		projectURL = projectURL + ".git"
+		withDotGitSuffix = projectURL + ".git"
+	} else {
+		withDotGitSuffix = projectURL
 	}
 	for _, pr := range protoProjects {
-		alreadyFollowed := ToLower(projectURL) == ToLower(pr.CloneURL)
+		alreadyFollowed := (ToLower(projectURL) == ToLower(pr.CloneURL)) || (ToLower(withDotGitSuffix) == ToLower(pr.CloneURL))
 		if alreadyFollowed {
 			return pr, true
 		}
