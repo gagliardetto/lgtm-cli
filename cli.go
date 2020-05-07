@@ -36,6 +36,8 @@ var (
 )
 
 func main() {
+	LogIncludeLevel = true
+	LogIncludeTime = true
 
 	var configFilepath string
 	var waitDuration time.Duration
@@ -45,10 +47,10 @@ func main() {
 	unfollower := func(isProto bool, key string, name string, done int64, tot int64) {
 		Infof(
 			"[%s](%v/%v) Unfollowing %s ...",
-			name,
 			GetFormattedPercent(done, tot),
 			done,
 			tot,
+			name,
 		)
 
 		unfollowFunc := client.UnfollowProject
@@ -76,7 +78,7 @@ func main() {
 
 	follower := func(u string, done int64, tot int64) *Envelope {
 		Infof(
-			"[%s](%v/%v) Following %s",
+			"[%s](%v/%v) Following %s ...",
 			GetFormattedPercent(done, tot),
 			done,
 			tot,
