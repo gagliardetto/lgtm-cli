@@ -36,9 +36,6 @@ var (
 )
 
 func main() {
-	LogIncludeLevel = true
-	LogIncludeTime = true
-
 	var configFilepath string
 	var waitDuration time.Duration
 	var client *Client
