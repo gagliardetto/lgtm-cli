@@ -499,6 +499,21 @@ func main() {
 					}
 
 					projectListKeys := c.StringSlice("list-key")
+
+					yes, err := CLIAskYesNo(Sf(
+						"Do you want to send the query %q to be run on %v projects and %v lists?",
+						queryFilepath,
+						len(projectkeys),
+						len(projectListKeys),
+					))
+					if err != nil {
+						panic(err)
+					}
+					if !yes {
+						Infof("Aborting...")
+						return nil
+					}
+
 					Infof(
 						"Sending query %q to be run on %v projects and %v lists...",
 						queryFilepath,
