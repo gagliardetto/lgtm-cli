@@ -619,7 +619,7 @@ func main() {
 						// rebuild if a project does not support the specified language.
 						if !isSupportedLanguageForProject {
 							Infof(
-								"%s does NOT have language %s; starting new build attempt",
+								"%s does NOT have language %s; starting new build attempt ...",
 								pr.DisplayName,
 								lang,
 							)
@@ -654,7 +654,7 @@ func main() {
 
 							if doRebuild {
 								Infof(
-									"Trying to issue a new test rebuild for %s for %s language",
+									"Trying to issue a new test rebuild for %s for %s language ...",
 									pr.DisplayName,
 									lang,
 								)
@@ -738,6 +738,9 @@ func main() {
 					}
 					Infof("%v lists; took %s", len(lists), took())
 
+					sort.Slice(lists, func(i, j int) bool {
+						return lists[i].Name < lists[j].Name
+					})
 					for _, list := range lists {
 						Sfln(
 							"%s | %s",
