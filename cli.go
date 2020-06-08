@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -357,6 +358,30 @@ func main() {
 					}
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
+
+					{ // write toBeFollowed to temp file:
+						scanName := "lgtml-cli-follow-" + time.Now().Format(FilenameTimeFormat)
+						tmpfile, err := ioutil.TempFile("", scanName+".*.txt")
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						writer := bufio.NewWriter(tmpfile)
+
+						for _, target := range toBeFollowed {
+							_, err := writer.WriteString(target + "\n")
+							if err != nil {
+								tmpfile.Close()
+								log.Fatal(err)
+							}
+						}
+
+						fmt.Println(Sf(PurpleBG("wrote compiled toBeFollowed list to temp file %s"), tmpfile.Name()))
+
+						if err := tmpfile.Close(); err != nil {
+							log.Fatal(err)
+						}
+					}
 					followedNew := 0
 					// follow repos:
 					for index, repoURL := range toBeFollowed {
