@@ -275,6 +275,9 @@ func main() {
 				Name:  "follow",
 				Usage: "Follow one or more projects.",
 				Action: func(c *cli.Context) error {
+
+					lang := ToLower(c.String("lang"))
+
 					repoURLsRaw := []string(c.Args())
 					hasRepoList := c.IsSet("f")
 					if hasRepoList {
@@ -304,15 +307,28 @@ func main() {
 								panic(fmt.Errorf("error while getting repo list for user %q: %s", owner, err))
 							}
 							Debugf("%s has %v repos", owner, len(repos))
+						RepoLoop:
 							for _, repo := range repos {
 								//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
 								isFork := repo.GetFork()
 								// "Currently we do not support analysis of forks. Consider adding the parent of the fork instead."
-								if !isFork {
-									repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
-								} else {
+								if isFork {
 									Warnf("Skipping fork %s", repo.GetFullName())
+									continue RepoLoop
 								}
+
+								if lang != "" && ToLower(repo.GetLanguage()) != lang {
+									languages, err := GithubListLanguages(repo.GetOwner().GetLogin(), repo.GetName())
+									if err != nil {
+										panic(fmt.Errorf("error while getting list of languages for repo %q: %s", repo.GetFullName(), err))
+									}
+									hasLanguage := SliceContains(languages, lang)
+									if !hasLanguage {
+										Warnf("Skipping repo %s because does not have language %q; %v", repo.GetFullName(), lang, languages)
+										continue RepoLoop
+									}
+								}
+								repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
 							}
 						} else {
 							parsed, err := ParseGitURL(raw, false)
@@ -365,6 +381,10 @@ func main() {
 					&cli.StringSliceFlag{
 						Name:  "repos, f",
 						Usage: "Filepath to text file with list of repos.",
+					},
+					&cli.StringFlag{
+						Name:  "lang, l",
+						Usage: "Filter github repos by language.",
 					},
 				},
 			},
@@ -996,7 +1016,24 @@ func main() {
 		log.Fatal(err)
 	}
 }
+func GithubListLanguages(owner string, repo string) ([]string, error) {
+	owner = strings.TrimSpace(owner)
+	repo = strings.TrimSpace(repo)
 
+	languagesMap, err := ghClient.ListLanguagesOfRepo(owner, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	var languages []string
+
+	for key := range languagesMap {
+		languages = append(languages, ToLower(key))
+	}
+
+	languages = Deduplicate(languages)
+	return languages, nil
+}
 func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 
 	owner = strings.TrimSpace(owner)
