@@ -302,9 +302,18 @@ func main() {
 						}
 						if isWholeUser {
 							Debugf("Getting list of repos for %s ...", owner)
-							repos, err := GithubGetRepoList(owner)
-							if err != nil {
-								panic(fmt.Errorf("error while getting repo list for user %q: %s", owner, err))
+
+							var repos []*github.Repository
+							if lang != "" {
+								repos, err = GithubListReposByLanguage(owner, lang)
+								if err != nil {
+									panic(fmt.Errorf("error while getting repo list for user %q: %s", owner, err))
+								}
+							} else {
+								repos, err = GithubGetRepoList(owner)
+								if err != nil {
+									panic(fmt.Errorf("error while getting repo list for user %q: %s", owner, err))
+								}
 							}
 							Debugf("%s has %v repos", owner, len(repos))
 						RepoLoop:
@@ -317,17 +326,6 @@ func main() {
 									continue RepoLoop
 								}
 
-								if lang != "" && ToLower(repo.GetLanguage()) != lang {
-									languages, err := GithubListLanguages(repo.GetOwner().GetLogin(), repo.GetName())
-									if err != nil {
-										panic(fmt.Errorf("error while getting list of languages for repo %q: %s", repo.GetFullName(), err))
-									}
-									hasLanguage := SliceContains(languages, lang)
-									if !hasLanguage {
-										Warnf("Skipping repo %s because does not have language %q; %v", repo.GetFullName(), lang, languages)
-										continue RepoLoop
-									}
-								}
 								repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
 							}
 						} else {
@@ -1033,6 +1031,17 @@ func GithubListLanguages(owner string, repo string) ([]string, error) {
 
 	languages = Deduplicate(languages)
 	return languages, nil
+}
+func GithubListReposByLanguage(owner string, lang string) ([]*github.Repository, error) {
+	owner = strings.TrimSpace(owner)
+	lang = strings.TrimSpace(lang)
+
+	repos, err := ghClient.ListReposBylanguage(owner, lang)
+	if err != nil {
+		return nil, err
+	}
+
+	return repos, nil
 }
 func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 
@@ -2372,9 +2381,6 @@ func isAlreadyFollowedProject(projects []*Project, projectURL string) (*Project,
 	return nil, false
 }
 
-func ToLower(s string) string {
-	return strings.ToLower(s)
-}
 func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*ProtoProject, bool) {
 	withDotGitSuffix := ""
 	if !strings.HasSuffix(projectURL, ".git") {
