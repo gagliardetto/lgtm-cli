@@ -19,7 +19,7 @@ import (
 	ghc "github.com/d1ss0lv3/ciccio/gh-client"
 	"github.com/gagliardetto/bianconiglio"
 	"github.com/gagliardetto/request"
-	. "github.com/gagliardetto/utils"
+	. "github.com/gagliardetto/utilz"
 	"github.com/google/go-github/github"
 	"github.com/goware/urlx"
 	"github.com/urfave/cli"
