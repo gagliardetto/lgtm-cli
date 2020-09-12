@@ -17,11 +17,13 @@ import (
 	"time"
 
 	"github.com/gagliardetto/bianconiglio"
+	"github.com/gagliardetto/eta"
 	ghc "github.com/gagliardetto/gh-client"
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/google/go-github/github"
 	"github.com/goware/urlx"
+	"github.com/hako/durafmt"
 	"github.com/urfave/cli"
 	"go.uber.org/ratelimit"
 )
@@ -42,13 +44,19 @@ func main() {
 	var client *Client
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	unfollower := func(isProto bool, key string, name string, done int64, tot int64) {
+	unfollower := func(isProto bool, key string, name string, etac *eta.ETA) {
+		defer etac.Done(1)
+
+		averagedETA := etac.GetETA()
+		thisETA := durafmt.Parse(averagedETA.Round(time.Second)).String()
+
 		Infof(
-			"[%s](%v/%v) Unfollowing %s ...",
-			GetFormattedPercent(done, tot),
-			done,
-			tot,
+			"[%s](%v/%v) Unfollowing %s ... ETA %s",
+			etac.GetFormattedPercentDone(),
+			etac.GetDone(),
+			etac.GetTotal(),
 			name,
+			thisETA,
 		)
 
 		unfollowFunc := client.UnfollowProject
@@ -65,22 +73,29 @@ func main() {
 			)
 		} else {
 			Successf(
-				"[%s](%v/%v) Unfollowed %s",
-				GetFormattedPercent(done, tot),
-				done,
-				tot,
+				"[%s](%v/%v) Unfollowed %s; ETA %s",
+				etac.GetFormattedPercentDone(),
+				etac.GetDone(),
+				etac.GetTotal(),
 				name,
+				thisETA,
 			)
 		}
 	}
 
-	follower := func(u string, done int64, tot int64) *Envelope {
+	follower := func(u string, etac *eta.ETA) *Envelope {
+		defer etac.Done(1)
+
+		averagedETA := etac.GetETA()
+		thisETA := durafmt.Parse(averagedETA.Round(time.Second)).String()
+
 		Infof(
-			"[%s](%v/%v) Following %s ...",
-			GetFormattedPercent(done, tot),
-			done,
-			tot,
+			"[%s](%v/%v) Following %s ...; ETA %s",
+			etac.GetFormattedPercentDone(),
+			etac.GetDone(),
+			etac.GetTotal(),
 			u,
+			thisETA,
 		)
 
 		prj, err := client.FollowProject(u)
@@ -98,12 +113,13 @@ func main() {
 				knownOrNew = LimeBG("[NEW]")
 			}
 			Successf(
-				"[%s](%v/%v) Followed %s %s",
-				GetFormattedPercent(done, tot),
-				done,
-				tot,
+				"[%s](%v/%v) Followed %s %s; ETA %s",
+				etac.GetFormattedPercentDone(),
+				etac.GetDone(),
+				etac.GetTotal(),
 				knownOrNew,
 				u,
+				thisETA,
 			)
 		}
 		return prj
@@ -187,11 +203,13 @@ func main() {
 					}
 					Infof("Starting to unfollow all...")
 
-					for index, pr := range projects {
-						unfollower(false, pr.Key, pr.ExternalURL.URL, int64(index+1), int64(total))
+					etac := eta.New(int64(total))
+
+					for _, pr := range projects {
+						unfollower(false, pr.Key, pr.ExternalURL.URL, etac)
 					}
-					for index, proto := range protoProjects {
-						unfollower(true, proto.Key, proto.CloneURL, int64(index+1+totalProjects), int64(total))
+					for _, proto := range protoProjects {
+						unfollower(true, proto.Key, proto.CloneURL, etac)
 					}
 					return nil
 				},
@@ -259,9 +277,12 @@ func main() {
 						}
 					}
 					Infof("Will unfollow %v projects...", len(toBeUnfollowed))
+
+					etac := eta.New(int64(len(repoURLs)))
+
 					// unfollow projects:
-					for index, pr := range toBeUnfollowed {
-						unfollower(false, pr.Key, pr.ExternalURL.URL, int64(index+1), int64(len(repoURLs)))
+					for _, pr := range toBeUnfollowed {
+						unfollower(false, pr.Key, pr.ExternalURL.URL, etac)
 					}
 					return nil
 				},
@@ -383,9 +404,12 @@ func main() {
 						}
 					}
 					followedNew := 0
+
+					etac := eta.New(int64(totalToBeFollowed))
+
 					// follow repos:
-					for index, repoURL := range toBeFollowed {
-						envelope := follower(repoURL, int64(index+1), int64(totalToBeFollowed))
+					for _, repoURL := range toBeFollowed {
+						envelope := follower(repoURL, etac)
 						if envelope != nil {
 							// if the project was NOT already known to lgtm.com,
 							// sleep to avoid triggering too many new builds:
