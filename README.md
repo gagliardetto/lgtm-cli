@@ -1,79 +1,133 @@
-## setup
+## Install
 
-```
-export LGTM_CLI_CONFIG=$GOPATH/src/github.com/gagliardetto/lgtm-cli/credentials.json
-```
+```bash
+go get github.com/gagliardetto/lgtm-cli
 
-## golang: get all dependencies of all (sub)packages of repo
+export LGTM_CLI_CONFIG=/path/to/credentials.json # see example_credentials.json
 
-```
-cd $GOPATH/src/github.com/kubernetes/kubernetes
-
-for dir in $(find . -type d ! -path "*/vendor/*"| sort -u); do
-	(cd "$dir"; deplist)
-done | sort -u >| all_dependencies.txt
+make
 ```
 
-## filter
 
-```
-cat $GOPATH/src/github.com/gagliardetto/lgtm-cli/kube_reduced.txt | cut -f1,2,3 -d'/' | sort -u
-```
+### unfollow all followed projects
 
-## high level actions
-
-- unfollow all projects
-- unfollow specific projects
-- follow a project: from input, or from file
-- run query on projects
-
-# unfollow all projects
+```bash
 lgtm unfollow-all
+```
 
-# unfollow one or more projects
-lgtm unfollow kubernetes github/codeql-go \
-	-f=projects.txt
+### list all followed projects
 
-# follow one or more projects
-lgtm follow kubernetes github/codeql-go \
-	-f=projects.txt
-
-# rebuild for a specific language
-lgtm --wait=30s rebuild --lang=go
-
-# run a query on multiple projects
-lgtm query \
-	kubernetes \
-	github/codeql-go \
-	-lang=go \
-	-f=projects-a.txt \
-	-f=projects-b.txt \
-	-q=/path/to/query-0.ql \
-	-F
-
-# run a query on one or more project lists:
-lgtm query \
-	--list-key=1234567890 \
-	-lang=go \
-	-q=./hello-world.ql
-
----
-
-# list all followed projects:
+```bash
 lgtm followed
+```
 
-# list all lists:
-lgtm lists
+### follow one or more projects
 
-# create a new list:
-lgtm create-list name_of_list
+```bash
+lgtm follow github/codeql-go kubernetes/kubernetes
+```
 
-# list projects in a list:
-lgtm list name_of_list
+### follow one or more projects from file
 
-# add projects to a list:
-lgtm add-to-list --name="new_list" kubernetes \
+```bash
+lgtm follow \
 	-f=projects.txt
+```
 
-# delete a list (no project will be unfollowed)
+### follow all projects of a specific owner
+
+```bash
+lgtm follow github
+```
+
+### list all lists
+
+```bash
+lgtm lists
+```
+
+### create a new list
+
+```bash
+lgtm create-list "name_of_list"
+```
+
+### list projects in a list
+
+```bash
+lgtm list name_of_list
+```
+
+### add one or more projects to a list
+
+```bash
+lgtm add-to-list \
+	github/codeql-go kubernetes/kubernetes \
+	--name="name_of_list"
+```
+
+### add projects to a list from a file
+
+```bash
+lgtm add-to-list \
+	--name="name_of_list" \
+	-f=projects.txt
+```
+
+### delete a list (NOTE: projects will NOT be unfollowed if they are followed)
+
+```bash
 lgtm delete-list "test-list"
+```
+
+### unfollow one or more projects
+
+```bash
+lgtm unfollow github/codeql-go kubernetes/kubernetes
+```
+
+### unfollow a list of projects from file
+
+```bash
+lgtm unfollow \
+	-f=projects.txt
+```
+
+### unfollow all projects from a certain owner (e.g. all projects from kubernetes owner)
+
+```bash
+lgtm unfollow kubernetes
+```
+
+### rebuild followed projects for a specific language (default: rebuild ONLY projects that don't have a build for that language, yet)
+
+```bash
+lgtm --wait=30s rebuild --lang=go
+```
+
+### run a query on a specific "project list"
+
+```bash
+lgtm query \
+	--list-key=0123456789 \
+	-lang=go \
+	-q=/path/to/query.ql
+```
+
+### run a query on one or more projects
+
+```bash
+lgtm query \
+	github/codeql-go kubernetes/kubernetes \
+	-lang=go \
+	-q=/path/to/query.ql
+```
+
+### run a query on projects from a file
+
+```bash
+lgtm query \
+	-lang=go \
+	-f=projects.txt \
+	-q=/path/to/query.ql
+```
