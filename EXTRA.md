@@ -1,7 +1,7 @@
 ## setup
 
 ```
-export LGTM_CLI_CONFIG=$GOPATH/src/github.com/gagliardetto/lgtm-cli/credentials.json
+export LGTM_CLI_CONFIG=credentials.json
 ```
 
 ## golang: get all dependencies of all (sub)packages of repo
