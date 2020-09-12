@@ -24,56 +24,60 @@ make
 }
 ```
 
-### unfollow all followed projects
+---
+
+## LGTM-CLI usage
+
+### Unfollow all followed projects
 
 ```bash
 lgtm unfollow-all
 ```
 
-### list all followed projects
+### List all followed projects
 
 ```bash
 lgtm followed
 ```
 
-### follow one or more projects
+### Follow one or more projects
 
 ```bash
 lgtm follow github/codeql-go kubernetes/kubernetes
 ```
 
-### follow one or more projects from file
+### Follow one or more projects from file
 
 ```bash
 lgtm follow \
 	-f=projects.txt
 ```
 
-### follow all projects of a specific owner
+### Follow all projects of a specific owner
 
 ```bash
 lgtm follow github
 ```
 
-### list all lists
+### List all lists
 
 ```bash
 lgtm lists
 ```
 
-### create a new list
+### Create a new list
 
 ```bash
 lgtm create-list "name_of_list"
 ```
 
-### list projects in a list
+### List projects in a list
 
 ```bash
 lgtm list name_of_list
 ```
 
-### add one or more projects to a list
+### Add one or more projects to a list
 
 ```bash
 lgtm add-to-list \
@@ -81,7 +85,7 @@ lgtm add-to-list \
 	--name="name_of_list"
 ```
 
-### add projects to a list from a file
+### Add projects to a list from a file
 
 ```bash
 lgtm add-to-list \
@@ -89,38 +93,38 @@ lgtm add-to-list \
 	-f=projects.txt
 ```
 
-### delete a list (NOTE: projects will NOT be unfollowed if they are followed)
+### Delete a list (NOTE: projects will NOT be unfollowed if they are followed)
 
 ```bash
 lgtm delete-list "test-list"
 ```
 
-### unfollow one or more projects
+### Unfollow one or more projects
 
 ```bash
 lgtm unfollow github/codeql-go kubernetes/kubernetes
 ```
 
-### unfollow a list of projects from file
+### Unfollow a list of projects from file
 
 ```bash
 lgtm unfollow \
 	-f=projects.txt
 ```
 
-### unfollow all projects from a certain owner (e.g. all projects from kubernetes owner)
+### Unfollow all projects from a certain owner (e.g. all projects from kubernetes owner)
 
 ```bash
 lgtm unfollow kubernetes
 ```
 
-### rebuild followed projects for a specific language (default: rebuild ONLY projects that don't have a build for that language, yet)
+### Rebuild followed projects for a specific language (default: rebuild ONLY projects that don't have a build for that language, yet)
 
 ```bash
 lgtm --wait=30s rebuild --lang=go
 ```
 
-### run a query on a specific "project list"
+### Run a query on a specific "project list"
 
 ```bash
 lgtm query \
@@ -129,7 +133,7 @@ lgtm query \
 	-q=/path/to/query.ql
 ```
 
-### run a query on one or more projects
+### Run a query on one or more projects
 
 ```bash
 lgtm query \
@@ -138,7 +142,7 @@ lgtm query \
 	-q=/path/to/query.ql
 ```
 
-### run a query on projects from a file
+### Run a query on projects from a file
 
 ```bash
 lgtm query \
@@ -146,6 +150,8 @@ lgtm query \
 	-f=projects.txt \
 	-q=/path/to/query.ql
 ```
+
+---
 
 ## Legal
 
