@@ -8,7 +8,6 @@ export LGTM_CLI_CONFIG=/path/to/credentials.json # see example_credentials.json
 make
 ```
 
-
 ### unfollow all followed projects
 
 ```bash
@@ -131,3 +130,11 @@ lgtm query \
 	-f=projects.txt \
 	-q=/path/to/query.ql
 ```
+
+## Legal
+
+The author of this script assumes no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
+
+## Credits
+
+`Legal` section of this readme: https://github.com/JLLeitschuh/lgtm_hack_scripts#legal
