@@ -3,9 +3,9 @@
 ```bash
 go get github.com/gagliardetto/lgtm-cli
 
-export LGTM_CLI_CONFIG=/path/to/credentials.json # see example_credentials.json
-
 make install
+
+export LGTM_CLI_CONFIG=/path/to/credentials.json # see example_credentials.json
 ```
 
 ## Example `credentials.json`
