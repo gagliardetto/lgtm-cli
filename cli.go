@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	ghc "github.com/d1ss0lv3/ciccio/gh-client"
 	"github.com/gagliardetto/bianconiglio"
+	ghc "github.com/gagliardetto/gh-client"
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/google/go-github/github"
