@@ -53,7 +53,7 @@ func main() {
 		Infof(
 			"[%s](%v/%v) Unfollowing %s ... ETA %s",
 			etac.GetFormattedPercentDone(),
-			etac.GetDone(),
+			etac.GetDone()+1,
 			etac.GetTotal(),
 			name,
 			thisETA,
@@ -75,7 +75,7 @@ func main() {
 			Successf(
 				"[%s](%v/%v) Unfollowed %s; ETA %s",
 				etac.GetFormattedPercentDone(),
-				etac.GetDone(),
+				etac.GetDone()+1,
 				etac.GetTotal(),
 				name,
 				thisETA,
@@ -92,7 +92,7 @@ func main() {
 		Infof(
 			"[%s](%v/%v) Following %s ...; ETA %s",
 			etac.GetFormattedPercentDone(),
-			etac.GetDone(),
+			etac.GetDone()+1,
 			etac.GetTotal(),
 			u,
 			thisETA,
@@ -115,7 +115,7 @@ func main() {
 			Successf(
 				"[%s](%v/%v) Followed %s %s; ETA %s",
 				etac.GetFormattedPercentDone(),
-				etac.GetDone(),
+				etac.GetDone()+1,
 				etac.GetTotal(),
 				knownOrNew,
 				u,
