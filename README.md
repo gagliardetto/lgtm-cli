@@ -124,6 +124,19 @@ lgtm unfollow kubernetes
 lgtm --wait=30s rebuild --lang=go
 ```
 
+### Trigger a build attempt for proto-projects
+
+```bash
+lgtm --wait=5s rebuild-proto
+```
+
+or to not be prompted for confirmation for each item:
+
+```bash
+lgtm --wait=5s rebuild-proto --force
+```
+
+
 ### Run a query on a specific "project list"
 
 ```bash

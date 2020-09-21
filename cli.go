@@ -144,6 +144,7 @@ func main() {
 			configFilepathFromEnv := os.Getenv("LGTM_CLI_CONFIG")
 
 			if configFilepath == "" && configFilepathFromEnv == "" {
+				Warnf("No config provided. Please specify the path to the config file with the LGTM_CLI_CONFIG env var.")
 				return errors.New(c.App.Usage)
 			}
 
@@ -181,17 +182,13 @@ func main() {
 				Name:  "unfollow-all",
 				Usage: "Unfollow all currently followed repositories (\"projects\".",
 				Action: func(c *cli.Context) error {
-					// TODO:
-					// - get list of all followed
-					// - unfollow each
-
 					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
+					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 					totalProjects := len(projects)
 					totalProtoProjects := len(protoProjects)
 					total := totalProjects + totalProtoProjects
@@ -266,7 +263,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
+					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
 					toBeUnfollowed := make([]*Project, 0)
 					// match repos against list of repos followed:
@@ -365,7 +362,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
+					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
 					toBeFollowed := make([]string, 0)
 					// exclude already-followed projects:
@@ -630,6 +627,89 @@ func main() {
 				},
 			},
 			{
+				Name:  "rebuild-proto",
+				Usage: "(Re)build followed proto-projects.",
+				Action: func(c *cli.Context) error {
+
+					took := NewTimer()
+					Infof("Getting list of followed projects...")
+					_, protoProjects, err := client.ListFollowedProjects()
+					if err != nil {
+						panic(err)
+					}
+					Infof("Currently %v proto-projects are followed; took %s", len(protoProjects), took())
+
+					force := c.Bool("F")
+
+					excluded := c.StringSlice("exclude")
+
+				RebuildLoop:
+					for _, pr := range protoProjects {
+						pattern, isBlacklisted := HasMatch(pr.DisplayName, excluded)
+						if isBlacklisted && pattern != "" {
+							Warnf(
+								"%s is excluded (by pattern %q); skipping",
+								pr.DisplayName,
+								pattern,
+							)
+							continue RebuildLoop
+						}
+
+						var rebuildOrNot bool
+						if !force {
+							message := Sf(
+								"%s is a proto-project; want to force new build attempt?",
+								pr.DisplayName,
+							)
+
+							if pr.NextBuildStarted {
+								message = Sf(
+									"%s is a proto-project with a build attempt in progress; want to force a new build attempt?",
+									pr.DisplayName,
+								)
+							}
+							rebuildOrNot, err = CLIAskYesNo(message)
+							if err != nil {
+								return err
+							}
+						}
+
+						doRebuild := force || rebuildOrNot
+
+						if doRebuild {
+							Infof(
+								"Trying to issue a new build attempt for %s ...",
+								pr.DisplayName,
+							)
+							err := client.RebuildProtoProject(pr.Key)
+							if err != nil {
+								Errorf(
+									"Failed to start a new build attemp for %s: %s",
+									pr.DisplayName,
+									err,
+								)
+							} else {
+								// sleep:
+								time.Sleep(waitDuration)
+							}
+						}
+
+					}
+
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "exclude, e",
+						Usage: "Exclude project(s) by glob; example: github/api",
+					},
+					&cli.BoolFlag{
+						Name:  "force, F",
+						Usage: "Rebuild all proto-projects without asking confirmation for each.",
+					},
+				},
+			},
+			{
 				Name:  "rebuild",
 				Usage: "Rebuild followed projects.",
 				Action: func(c *cli.Context) error {
@@ -645,9 +725,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v projects (%v proto) are followed; took %s", len(projects), len(protoProjects), took())
-					// TODO: rebuild protoprojects
-					_ = protoProjects
+					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
 					var projectsThatSupportTheLanguage int
 					for _, pr := range projects {
@@ -755,7 +833,7 @@ func main() {
 					},
 					&cli.BoolFlag{
 						Name:  "force, F",
-						Usage: "Follow what is not followed.",
+						Usage: "Rebuild without asking for confirmation.",
 					},
 					&cli.BoolFlag{
 						Name:  "all",
@@ -775,7 +853,7 @@ func main() {
 						panic(err)
 					}
 					Infof(
-						"%v projects and %v protoprojects; took %s",
+						"%v projects and %v proto-projects; took %s",
 						len(projects),
 						len(protoProjects),
 						took(),
