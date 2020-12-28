@@ -59,6 +59,12 @@ lgtm follow \
 lgtm follow github
 ```
 
+### Follow all projects of a specific language (experimental and limited)
+
+```bash
+lgtm follow-massively python java
+```
+
 ### List all lists
 
 ```bash

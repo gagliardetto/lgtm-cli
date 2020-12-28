@@ -20,6 +20,7 @@ require (
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/goware/urlx v0.3.1
 	github.com/hako/durafmt v0.0.0-20200710122514-c0fb7b4da026
+	github.com/jorgectf/gh-client v0.0.0-20201228175246-e26e81ae129e
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/miekg/dns v1.1.35 // indirect
 	github.com/mozillazg/request v0.8.0 // indirect
