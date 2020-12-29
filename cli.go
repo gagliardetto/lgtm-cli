@@ -437,12 +437,11 @@ func main() {
 				Usage: "Follow projects by language.",
 				Action: func(c *cli.Context) error {
 
-					lang := []string(c.Args())
+					lang := c.Args().First()
 					repoURLs := make([]string, 0)
 
 					Debugf("Getting list of repos for language: %s ...", lang)
-					var repos []*github.Repository
-					repos, err = GithubListReposOnlyByLanguage(lang) //
+					repos, err := GithubListReposOnlyByLanguage(lang)
 					if err != nil {																	//			Why is err undefined?
 						panic(fmt.Errorf("error while getting repo list for language %q: %s", lang, err)) //
 					}
@@ -527,21 +526,20 @@ func main() {
 				},
 			},
 			{
-				Name:  "follow-by-search",
-				Usage: "Follow projects by custom search.",
+				Name:  "follow-by-search-repos",
+				Usage: "Follow projects by custom search on repositories meta.",
 				Action: func(c *cli.Context) error {
 
-					search := []string(c.Args())
+					query := c.Args().First()
 					repoURLs := make([]string, 0)
 
-					Debugf("Getting list of repos for search: '%s' ...", search)
-					var repos []*github.Repository
-					repos, err = GithubListReposByCustomSearch(search) //
+					Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
+					repos, err := GithubListReposByCustomSearch(query)
 					if err != nil {																	//			Why is err undefined?
-						panic(fmt.Errorf("error while getting repo list for search '%q': %s", search, err)) //
+						panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err)) //
 					}
 					
-					Debugf("search '%s' has %v repos", search, len(repos))
+					Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
 				RepoLoop:
 					for _, repo := range repos {
 						//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
@@ -1362,20 +1360,20 @@ func GithubListReposByLanguage(owner string, lang string) ([]*github.Repository,
 func GithubListReposOnlyByLanguage(lang string) ([]*github.Repository, error) {
 	lang = strings.TrimSpace(lang)
 
-	repos, err := ghClient.ListReposOnlyBylanguage(lang)
+	opts := &ghc.ListReposOnlyBylanguageOpts{
+		Language:     lang,
+		ExcludeForks: true,
+		// Limit:        limit, // Maybe add a `--limit=n` flag?
+	}
+	repos, err := ghClient.ListReposOnlyBylanguage(opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return repos, nil
 }
-func GithubListReposByCustomSearch(search string) ([]*github.Repository, error) {
-	repos, err := ghClient.ListReposByCustomSearch(search)
-	if err != nil {
-		return nil, err
-	}
-
-	return repos, nil
+func GithubListReposByCustomSearch(query string) ([]*github.Repository, error) {
+	return ghClient.SearchRepos(query)
 }
 func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 
