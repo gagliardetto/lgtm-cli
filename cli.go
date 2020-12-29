@@ -437,32 +437,28 @@ func main() {
 				Usage: "Follow projects by language.",
 				Action: func(c *cli.Context) error {
 
-					langs := []string(c.Args())
-
+					lang := []string(c.Args())
 					repoURLs := make([]string, 0)
-					for _, lang := range langs {
 
-						Debugf("Getting list of repos for language: %s ...", lang)
-
-						var repos []*github.Repository
-						repos, err = GithubListReposOnlyByLanguage(lang)
-						if err != nil {
-							panic(fmt.Errorf("error while getting repo list for language %q: %s", lang, err))
+					Debugf("Getting list of repos for language: %s ...", lang)
+					var repos []*github.Repository
+					repos, err = GithubListReposOnlyByLanguage(lang) //
+					if err != nil {																	//			Why is err undefined?
+						panic(fmt.Errorf("error while getting repo list for language %q: %s", lang, err)) //
+					}
+					
+					Debugf("%s has %v repos", lang, len(repos))
+				RepoLoop:
+					for _, repo := range repos {
+						//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
+						isFork := repo.GetFork()
+						// "Currently we do not support analysis of forks. Consider adding the parent of the fork instead."
+						if isFork {
+							Warnf("Skipping fork %s", repo.GetFullName())
+							continue RepoLoop
 						}
-						
-						Debugf("%s has %v repos", lang, len(repos))
-					RepoLoop:
-						for _, repo := range repos {
-							//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
-							isFork := repo.GetFork()
-							// "Currently we do not support analysis of forks. Consider adding the parent of the fork instead."
-							if isFork {
-								Warnf("Skipping fork %s", repo.GetFullName())
-								continue RepoLoop
-							}
 
-							repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
-						}
+						repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
 					}	
 					took := NewTimer()
 					Infof("Getting list of followed projects...")
