@@ -527,6 +527,101 @@ func main() {
 				},
 			},
 			{
+				Name:  "follow-by-search",
+				Usage: "Follow projects by custom search.",
+				Action: func(c *cli.Context) error {
+
+					search := []string(c.Args())
+					repoURLs := make([]string, 0)
+
+					Debugf("Getting list of repos for search: '%s' ...", search)
+					var repos []*github.Repository
+					repos, err = GithubListReposByCustomSearch(search) //
+					if err != nil {																	//			Why is err undefined?
+						panic(fmt.Errorf("error while getting repo list for search '%q': %s", search, err)) //
+					}
+					
+					Debugf("search '%s' has %v repos", search, len(repos))
+				RepoLoop:
+					for _, repo := range repos {
+						//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
+						isFork := repo.GetFork()
+						// "Currently we do not support analysis of forks. Consider adding the parent of the fork instead."
+						if isFork {
+							Warnf("Skipping fork %s", repo.GetFullName())
+							continue RepoLoop
+						}
+
+						repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
+					}	
+					took := NewTimer()
+					Infof("Getting list of followed projects...")
+					projects, protoProjects, err := client.ListFollowedProjects()
+					if err != nil {
+						panic(err)
+					}
+					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+
+					toBeFollowed := make([]string, 0)
+					// exclude already-followed projects:
+					for _, repoURL := range repoURLs {
+						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
+						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
+						isNOTFollowed := !isFollowed && !isFollowedProto
+						if isNOTFollowed {
+							toBeFollowed = append(toBeFollowed, repoURL)
+						}
+					}
+					totalToBeFollowed := len(toBeFollowed)
+					Infof("Will follow %v projects...", totalToBeFollowed)
+
+					{ // write toBeFollowed to temp file:
+						scanName := "lgtml-cli-follow-" + time.Now().Format(FilenameTimeFormat)
+						tmpfile, err := ioutil.TempFile("", scanName+".*.txt")
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						writer := bufio.NewWriter(tmpfile)
+
+						for _, target := range toBeFollowed {
+							_, err := writer.WriteString(target + "\n")
+							if err != nil {
+								tmpfile.Close()
+								log.Fatal(err)
+							}
+						}
+
+						fmt.Println(Sf(PurpleBG("wrote compiled toBeFollowed list to temp file %s"), tmpfile.Name()))
+
+						if err := tmpfile.Close(); err != nil {
+							log.Fatal(err)
+						}
+					}
+					followedNew := 0
+
+					etac := eta.New(int64(totalToBeFollowed))
+
+					// follow repos:
+					for _, repoURL := range toBeFollowed {
+						envelope := follower(repoURL, etac)
+						if envelope != nil {
+							// if the project was NOT already known to lgtm.com,
+							// sleep to avoid triggering too many new builds:
+							isNew := !envelope.IsKnown()
+							if isNew {
+								followedNew++
+								// sleep:
+								time.Sleep(waitDuration)
+							}
+						}
+					}
+					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
+					return nil
+				},
+			},
+
+			{
 				Name:  "query",
 				Usage: "Run a query on one or multiple projects.",
 				Action: func(c *cli.Context) error {
@@ -1268,6 +1363,14 @@ func GithubListReposOnlyByLanguage(lang string) ([]*github.Repository, error) {
 	lang = strings.TrimSpace(lang)
 
 	repos, err := ghClient.ListReposOnlyBylanguage(lang)
+	if err != nil {
+		return nil, err
+	}
+
+	return repos, nil
+}
+func GithubListReposByCustomSearch(search string) ([]*github.Repository, error) {
+	repos, err := ghClient.ListReposByCustomSearch(search)
 	if err != nil {
 		return nil, err
 	}

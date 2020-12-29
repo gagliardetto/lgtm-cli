@@ -59,10 +59,16 @@ lgtm follow \
 lgtm follow github
 ```
 
-### Follow all projects of a specific language (experimental and limited)
+### Follow all projects of a specific language (experimental)
 
 ```bash
-lgtm follow-by-lang python java
+lgtm follow-by-lang python
+```
+
+### Follow all projects from a specific search query (experimental and limited)
+
+```bash
+lgtm follow-by-search "from flask import Flask"
 ```
 
 ### List all lists
