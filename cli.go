@@ -433,7 +433,7 @@ func main() {
 				},
 			},
 			{
-				Name:  "follow-massively",
+				Name:  "follow-by-lang",
 				Usage: "Follow one or more projects.",
 				Action: func(c *cli.Context) error {
 
