@@ -62,7 +62,7 @@ lgtm follow github
 ### Follow all projects of a specific language (experimental and limited)
 
 ```bash
-lgtm follow-massively python java
+lgtm follow-by-lang python java
 ```
 
 ### List all lists
