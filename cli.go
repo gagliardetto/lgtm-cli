@@ -441,13 +441,6 @@ func main() {
 
 					repoURLs := make([]string, 0)
 					for _, lang := range langs {
-						lang, isWholeUser, err := IsUserOnly(lang)
-						if err != nil {
-							panic(err)
-						}
-						if !isWholeUser {
-							Debugf("Perhaps language is strange: %s", lang)
-						}
 
 						Debugf("Getting list of repos for language: %s ...", lang)
 
