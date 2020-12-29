@@ -434,7 +434,7 @@ func main() {
 			},
 			{
 				Name:  "follow-by-lang",
-				Usage: "Follow one or more projects.",
+				Usage: "Follow projects by language.",
 				Action: func(c *cli.Context) error {
 
 					langs := []string(c.Args())
