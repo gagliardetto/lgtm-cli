@@ -1625,11 +1625,7 @@ func (cl *Client) ListFollowedProjects() ([]*Project, []*ProtoProject, error) {
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1686,11 +1682,7 @@ func (cl *Client) UnfollowProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1731,11 +1723,7 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1782,11 +1770,7 @@ func (cl *Client) FollowProject(u string) (*Envelope, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1828,11 +1812,7 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1874,11 +1854,7 @@ func (cl *Client) CreateProjectSelection(name string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1931,11 +1907,7 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1988,11 +1960,7 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2038,11 +2006,7 @@ func (cl *Client) ListProjectSelections() ([]*ProjectSelectionBare, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2099,11 +2063,7 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2185,11 +2145,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2573,11 +2529,7 @@ func (cl *Client) RebuildProtoProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2630,11 +2582,7 @@ func (cl *Client) NewBuildAttempt(projectKey string, lang string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2677,11 +2625,7 @@ func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error 
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2755,11 +2699,7 @@ func (cl *Client) GetProjectLatestStateStats(projectKey string) (*LatestStateSta
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2820,11 +2760,7 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, err := resp.Text()
-		if err != nil {
-			panic(err)
-		}
-		return nil, fmt.Errorf("status code is %v; body:\n\n %s", resp.StatusCode, body)
+		return nil, formatNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -2905,4 +2841,18 @@ func saveTargetListToTempFile(cmdName string, targets []string) {
 	if err := tmpfile.Close(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// formatNotOKStatusCodeError is used to format an error when the status code is not 200.
+func formatNotOKStatusCodeError(resp *request.Response) error {
+	body, err := resp.Text()
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Errorf(
+		"Status code: %v\nHeader: %s\nBody:\n\n %s",
+		resp.StatusCode,
+		resp.Header,
+		body,
+	)
 }
