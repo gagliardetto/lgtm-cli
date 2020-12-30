@@ -1475,6 +1475,11 @@ func GithubListReposByCodeSearch(query string) ([]*github.Repository, error) {
 		return nil, err
 	}
 
+		// Deduplicate results (for any given repo, there might be more than one code results).
+		DeduplicateSlice2(&codeResults, func(i int) string {
+			return codeResults[i].Repository.GetHTMLURL()
+		})
+
 	for _, codeResult := range codeResults {
 		repos = append(repos, codeResult.Repository)
 	}
