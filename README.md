@@ -129,8 +129,10 @@ lgtm delete-list "test-list"
 
 ### Unfollow one or more projects
 
+Supports glob matching.
+
 ```bash
-lgtm unfollow github/codeql-go kubernetes/kubernetes
+lgtm unfollow github/codeql-go "kubernetes/*" "foo/b*" "*/hello"
 ```
 
 ### Unfollow a list of projects from file

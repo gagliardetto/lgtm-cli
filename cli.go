@@ -224,8 +224,8 @@ func main() {
 				Usage: "Unfollow one or more projects.",
 				Action: func(c *cli.Context) error {
 					repoURLsRaw := []string(c.Args())
-					hasRepoList := c.IsSet("f")
-					if hasRepoList {
+					hasRepoListFilepath := c.IsSet("f")
+					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
 						for _, path := range repoListFilepaths {
 							err := ReadConfigLinesAsString(path, func(line string) bool {
@@ -239,29 +239,28 @@ func main() {
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
 
-					repoURLs := make([]string, 0)
+					repoURLPatterns := make([]string, 0)
+
+					// Compile list of patterns:
 					for _, raw := range repoURLsRaw {
-						owner, isWholeUser, err := IsUserOnly(raw)
+						parsed, err := ParseGitURL(raw, false)
 						if err != nil {
 							panic(err)
 						}
-						if isWholeUser {
-							Debugf("Getting list of repos for %s ...", owner)
-							repos, err := GithubGetRepoList(owner)
-							if err != nil {
-								panic(fmt.Errorf("error while getting repo list for user %q: %s", owner, err))
-							}
-							Debugf("%s has %v repos", owner, len(repos))
-							for _, repo := range repos {
-								//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
-								repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
-							}
+						if isGlob(raw) {
+							repoURLPatterns = append(repoURLPatterns, parsed.URL())
 						} else {
-							parsed, err := ParseGitURL(raw, false)
+							_, isWholeUser, err := IsUserOnly(raw)
 							if err != nil {
 								panic(err)
 							}
-							repoURLs = append(repoURLs, parsed.URL())
+							if isWholeUser {
+								// Transform to a glob that matches all repos of a user:
+								asGlob := parsed.URL() + "/*"
+								repoURLPatterns = append(repoURLPatterns, asGlob)
+							} else {
+								repoURLPatterns = append(repoURLPatterns, parsed.URL())
+							}
 						}
 					}
 
@@ -276,14 +275,14 @@ func main() {
 					toBeUnfollowed := make([]*Project, 0)
 					// match repos against list of repos followed:
 					for _, pr := range projects {
-						isToBeUnfollowed := SliceContains(repoURLs, pr.ExternalURL.URL)
+						_, isToBeUnfollowed := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
 						if isToBeUnfollowed {
 							toBeUnfollowed = append(toBeUnfollowed, pr)
 						}
 					}
 					Infof("Will unfollow %v projects...", len(toBeUnfollowed))
 
-					etac := eta.New(int64(len(repoURLs)))
+					etac := eta.New(int64(len(toBeUnfollowed)))
 
 					// unfollow projects:
 					for _, pr := range toBeUnfollowed {
@@ -306,8 +305,8 @@ func main() {
 					lang := ToLower(c.String("lang"))
 
 					repoURLsRaw := []string(c.Args())
-					hasRepoList := c.IsSet("f")
-					if hasRepoList {
+					hasRepoListFilepath := c.IsSet("f")
+					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
 						for _, path := range repoListFilepaths {
 							err := ReadConfigLinesAsString(path, func(line string) bool {
@@ -759,8 +758,8 @@ func main() {
 					queryString := string(queryBytes)
 
 					repoURLsRaw := []string(c.Args())
-					hasRepoList := c.IsSet("f")
-					if hasRepoList {
+					hasRepoListFilepath := c.IsSet("f")
+					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
 						for _, path := range repoListFilepaths {
 							err := ReadConfigLinesAsString(path, func(line string) bool {
@@ -1329,8 +1328,8 @@ func main() {
 				Action: func(c *cli.Context) error {
 
 					repoURLsRaw := []string(c.Args())
-					hasRepoList := c.IsSet("f")
-					if hasRepoList {
+					hasRepoListFilepath := c.IsSet("f")
+					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
 						for _, path := range repoListFilepaths {
 							err := ReadConfigLinesAsString(path, func(line string) bool {
@@ -2852,7 +2851,11 @@ func formatNotOKStatusCodeError(resp *request.Response) error {
 	return fmt.Errorf(
 		"Status code: %v\nHeader: %s\nBody:\n\n %s",
 		resp.StatusCode,
-		resp.Header,
+		Sq(resp.Header),
 		body,
 	)
+}
+
+func isGlob(s string) bool {
+	return strings.Contains(s, "*")
 }

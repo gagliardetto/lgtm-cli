@@ -68,8 +68,6 @@ github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7 h1:7qE3My6PxV4W0b
 github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7/go.mod h1:1X2IK4FQZYTF/EIR7SeCspQnmRAC12wqfrCDrs+4xSs=
 github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229 h1:AbFXcOPzJGU/JNGGO4cYilsJfLs0nAsA/80WqtBjvms=
 github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229/go.mod h1:C5sFpewVXDqWbq2zryJjvW5w120W5YfCb+UZ2avQQ8A=
-github.com/gagliardetto/gh-client v0.0.0-20201230022147-7f7a891eaea9 h1:vVEjRTC/VqcrkJBt2nWADPNryvivbrTBJHOILlpzd14=
-github.com/gagliardetto/gh-client v0.0.0-20201230022147-7f7a891eaea9/go.mod h1:pQfMg3Y555NqZhrzuINz5EuWEomq4CWHwksY7riZPLU=
 github.com/gagliardetto/gh-client v0.0.0-20201230205624-1ed4869642ed h1:DDPzya5t+KNO4oNWjFSRFbjWzCTEwobF1bldBlcXgKk=
 github.com/gagliardetto/gh-client v0.0.0-20201230205624-1ed4869642ed/go.mod h1:pQfMg3Y555NqZhrzuINz5EuWEomq4CWHwksY7riZPLU=
 github.com/gagliardetto/hashsearch v0.0.0-20191005111333-09dd671e19f9 h1:o9aZ1Wqq9jjl8q5DdGEkmyckXIHkFaKv8yfgbZWzXhI=
@@ -80,6 +78,8 @@ github.com/gagliardetto/treeout v0.0.0-20190606173918-e39ca299e8d8 h1:XY1NZiQCVF
 github.com/gagliardetto/treeout v0.0.0-20190606173918-e39ca299e8d8/go.mod h1:U8ourt2N6fofri0W2SGM9VIpsbHz59e7DNiFqa2/pmM=
 github.com/gagliardetto/utilz v0.0.0-20201229172735-3d46888c4617 h1:QOrUkMKm3FCojdwo+1QYPXZcvnmcvi+XhvwSPL8GFq0=
 github.com/gagliardetto/utilz v0.0.0-20201229172735-3d46888c4617/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
+github.com/gagliardetto/utilz v0.0.0-20201230231556-9c6d3fed593e h1:LO+Es3Bcu6Lmsf/jAuowu0Se3BLO79oZlpPmoOGosbk=
+github.com/gagliardetto/utilz v0.0.0-20201230231556-9c6d3fed593e/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
