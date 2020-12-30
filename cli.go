@@ -130,7 +130,7 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "conf",
-				Usage:       "path to credentials.json file",
+				Usage:       "Path to credentials.json file",
 				Destination: &configFilepath,
 			},
 			&cli.DurationFlag{
@@ -144,7 +144,7 @@ func main() {
 			configFilepathFromEnv := os.Getenv("LGTM_CLI_CONFIG")
 
 			if configFilepath == "" && configFilepathFromEnv == "" {
-				Warnf("No config provided. Please specify the path to the config file with the LGTM_CLI_CONFIG env var.")
+				Errorf("No config provided. Please specify the path to the config file with the LGTM_CLI_CONFIG env var.")
 				return errors.New(c.App.Usage)
 			}
 
@@ -156,6 +156,9 @@ func main() {
 			conf, err := LoadConfigFromFile(configFilepath)
 			if err != nil {
 				panic(err)
+			}
+			if err := conf.Validate(); err != nil {
+				Fatalf("Config is not valid: %s", err)
 			}
 
 			client, err = NewClient(conf)
@@ -486,7 +489,7 @@ func main() {
 
 					etac := eta.New(int64(totalToBeFollowed))
 
-					if start > 0 && start > totalToBeFollowed-1 {
+					if start > 0 && start > totalToBeFollowed {
 						Fatalf(
 							"Got %v projects, but the --start flag value is set to %v",
 							totalToBeFollowed,
@@ -495,7 +498,7 @@ func main() {
 					}
 					// follow repos:
 					for repoURLIndex, repoURL := range toBeFollowed {
-						if start > 0 && repoURLIndex < start {
+						if start > 0 && repoURLIndex+1 < start {
 							continue
 						}
 						envelope := follower(repoURL, etac)
@@ -520,7 +523,7 @@ func main() {
 					},
 					&cli.IntFlag{
 						Name:  "start",
-						Usage: "Start following from project index N of the final list (zero-indexed).",
+						Usage: "Start following from project N of the final list (one-indexed).",
 					},
 					&cli.BoolFlag{
 						Name:  "force, y",
@@ -2280,13 +2283,13 @@ type LGTMSession struct {
 // Validate validates
 func (sess *LGTMSession) Validate() error {
 	if sess.Nonce == "" {
-		return errors.New("sess.Nonce is not set")
+		return errors.New("session.nonce is not set")
 	}
 	if sess.ShortSession == "" {
-		return errors.New("sess.ShortSession is not set")
+		return errors.New("session.short_session is not set")
 	}
 	if sess.LongSession == "" {
-		return errors.New("sess.LongSession is not set")
+		return errors.New("session.long_session is not set")
 	}
 	return nil
 }
@@ -2304,14 +2307,21 @@ type GithubConfig struct {
 // Validate validates
 func (conf *Config) Validate() error {
 	if conf.APIVersion == "" {
-		return errors.New("conf.APIVersion not provided")
+		return errors.New("conf.api_version is not set")
 	}
-
 	if conf.Session == nil {
-		return errors.New("conf.Session is nil")
+		return errors.New("conf.session is not set")
 	}
-
-	return conf.Session.Validate()
+	if err := conf.Session.Validate(); err != nil {
+		return fmt.Errorf("error while validating conf.session: %s", err)
+	}
+	if conf.GitHub == nil {
+		return errors.New("conf.github is not set")
+	}
+	if conf.GitHub.Token == "" {
+		return errors.New("conf.github.token is not set")
+	}
+	return nil
 }
 
 type Envelope struct {
