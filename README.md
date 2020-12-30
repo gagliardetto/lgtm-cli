@@ -59,6 +59,34 @@ lgtm follow \
 lgtm follow github
 ```
 
+### Follow all projects of a specific language (experimental)
+
+```bash
+lgtm follow-by-lang python
+```
+
+### Follow all projects from a specific search query on repository metadata (limited to first 1K results)
+
+Follow GitHub repositories that match your provided **repository search query**.
+
+For query syntax, see : https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-for-repositories
+
+**NOTE:** lgtm.com does not support fork scanning, so to get more relevant repositories, it's always advised to include `fork:false` in your search query.
+
+```bash
+lgtm follow-by-meta-search 'jquery "hello world" in:name,description language:javascript fork:false'
+```
+
+### Follow all projects from a specific code search query (limited to first 1K results)
+
+Follow GitHub repositories that match your provided **code search query**.
+
+For query syntax, see: https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-code
+
+```bash
+lgtm follow-by-code-search 'from flask import Flask language:python filename:"__init__.py"'
+```
+
 ### List all lists
 
 ```bash
