@@ -526,7 +526,7 @@ func main() {
 				},
 			},
 			{
-				Name:  "follow-by-search-meta",
+				Name:  "follow-by-meta-search",
 				Usage: "Follow projects by custom search on repositories meta.",
 				Action: func(c *cli.Context) error {
 
