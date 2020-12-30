@@ -65,10 +65,16 @@ lgtm follow github
 lgtm follow-by-lang python
 ```
 
-### Follow all projects from a specific search query (experimental and limited)
+### Follow all projects from a specific search query (metadata) (limited)
 
 ```bash
-lgtm follow-by-search "from flask import Flask"
+lgtm follow-by-meta-search "some identifiable information"
+```
+
+### Follow all projects from a specific search query (code) (limited)
+
+```bash
+lgtm follow-by-code-search "from flask import Flask"
 ```
 
 ### List all lists

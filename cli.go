@@ -441,7 +441,7 @@ func main() {
 					repoURLs := make([]string, 0)
 
 					Debugf("Getting list of repos for language: %s ...", lang)
-					repos, err := GithubListReposOnlyByLanguage(lang)
+					repos, err := ListAllReposByLanguage(lang)
 					if err != nil { //			Why is err undefined?
 						panic(fmt.Errorf("error while getting repo list for language %q: %s", lang, err)) //
 					}
@@ -526,7 +526,7 @@ func main() {
 				},
 			},
 			{
-				Name:  "follow-by-search-repos",
+				Name:  "follow-by-search-meta",
 				Usage: "Follow projects by custom search on repositories meta.",
 				Action: func(c *cli.Context) error {
 
@@ -534,9 +534,9 @@ func main() {
 					repoURLs := make([]string, 0)
 
 					Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
-					repos, err := GithubListReposByCustomSearch(query)
-					if err != nil { //			Why is err undefined?
-						panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err)) //
+					repos, err := GithubListReposByMetaSearch(query)
+					if err != nil {
+						panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err))
 					}
 
 					Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
@@ -618,7 +618,99 @@ func main() {
 					return nil
 				},
 			},
+			{
+				Name:  "follow-by-code-search",
+				Usage: "Follow projects by custom search on repositories code.",
+				Action: func(c *cli.Context) error {
 
+					query := c.Args().First()
+					repoURLs := make([]string, 0)
+
+					Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
+					repos, err := GithubListReposByCodeSearch(query)
+					if err != nil {
+						panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err))
+					}
+
+					Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
+				RepoLoop:
+					for _, repo := range repos {
+						//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
+						isFork := repo.GetFork()
+						// "Currently we do not support analysis of forks. Consider adding the parent of the fork instead."
+						if isFork {
+							Warnf("Skipping fork %s", repo.GetFullName())
+							continue RepoLoop
+						}
+
+						repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
+					}
+					took := NewTimer()
+					Infof("Getting list of followed projects...")
+					projects, protoProjects, err := client.ListFollowedProjects()
+					if err != nil {
+						panic(err)
+					}
+					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+
+					toBeFollowed := make([]string, 0)
+					// exclude already-followed projects:
+					for _, repoURL := range repoURLs {
+						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
+						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
+						isNOTFollowed := !isFollowed && !isFollowedProto
+						if isNOTFollowed {
+							toBeFollowed = append(toBeFollowed, repoURL)
+						}
+					}
+					totalToBeFollowed := len(toBeFollowed)
+					Infof("Will follow %v projects...", totalToBeFollowed)
+
+					{ // write toBeFollowed to temp file:
+						scanName := "lgtml-cli-follow-" + time.Now().Format(FilenameTimeFormat)
+						tmpfile, err := ioutil.TempFile("", scanName+".*.txt")
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						writer := bufio.NewWriter(tmpfile)
+
+						for _, target := range toBeFollowed {
+							_, err := writer.WriteString(target + "\n")
+							if err != nil {
+								tmpfile.Close()
+								log.Fatal(err)
+							}
+						}
+
+						fmt.Println(Sf(PurpleBG("wrote compiled toBeFollowed list to temp file %s"), tmpfile.Name()))
+
+						if err := tmpfile.Close(); err != nil {
+							log.Fatal(err)
+						}
+					}
+					followedNew := 0
+
+					etac := eta.New(int64(totalToBeFollowed))
+
+					// follow repos:
+					for _, repoURL := range toBeFollowed {
+						envelope := follower(repoURL, etac)
+						if envelope != nil {
+							// if the project was NOT already known to lgtm.com,
+							// sleep to avoid triggering too many new builds:
+							isNew := !envelope.IsKnown()
+							if isNew {
+								followedNew++
+								// sleep:
+								time.Sleep(waitDuration)
+							}
+						}
+					}
+					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
+					return nil
+				},
+			},
 			{
 				Name:  "query",
 				Usage: "Run a query on one or multiple projects.",
@@ -1357,23 +1449,26 @@ func GithubListReposByLanguage(owner string, lang string) ([]*github.Repository,
 
 	return repos, nil
 }
-func GithubListReposOnlyByLanguage(lang string) ([]*github.Repository, error) {
+func ListAllReposByLanguage(lang string) ([]*github.Repository, error) {
 	lang = strings.TrimSpace(lang)
 
-	opts := &ghc.ListReposOnlyBylanguageOpts{
+	opts := &ghc.ListAllReposByLanguageOpts{
 		Language:     lang,
 		ExcludeForks: true,
 		// Limit:        limit, // Maybe add a `--limit=n` flag?
 	}
-	repos, err := ghClient.ListReposOnlyBylanguage(opts)
+	repos, err := ghClient.ListAllReposByLanguage(opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return repos, nil
 }
-func GithubListReposByCustomSearch(query string) ([]*github.Repository, error) {
+func GithubListReposByMetaSearch(query string) ([]*github.Repository, error) {
 	return ghClient.SearchRepos(query)
+}
+func GithubListReposByCodeSearch(query string) ([]*github.Repository, error) {
+	return ghClient.SearchCode(query)
 }
 func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 
