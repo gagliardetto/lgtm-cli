@@ -1468,7 +1468,18 @@ func GithubListReposByMetaSearch(query string) ([]*github.Repository, error) {
 	return ghClient.SearchRepos(query)
 }
 func GithubListReposByCodeSearch(query string) ([]*github.Repository, error) {
-	return ghClient.SearchCode(query)
+	var repos []*github.Repository
+
+	codeResults, err := ghClient.SearchCode(query)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, codeResult := range codeResults {
+		repos = append(repos, codeResult.Repository)
+	}
+
+	return repos, nil
 }
 func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 
