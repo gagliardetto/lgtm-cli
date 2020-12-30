@@ -18,7 +18,7 @@ import (
 
 	"github.com/gagliardetto/bianconiglio"
 	"github.com/gagliardetto/eta"
-	ghc "github.com/jorgectf/gh-client" // Waiting for gagliardetto/gh-client repo to have merged the new function
+	ghc "github.com/gagliardetto/gh-client"
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/google/go-github/github"
@@ -442,10 +442,10 @@ func main() {
 
 					Debugf("Getting list of repos for language: %s ...", lang)
 					repos, err := GithubListReposOnlyByLanguage(lang)
-					if err != nil {																	//			Why is err undefined?
+					if err != nil { //			Why is err undefined?
 						panic(fmt.Errorf("error while getting repo list for language %q: %s", lang, err)) //
 					}
-					
+
 					Debugf("%s has %v repos", lang, len(repos))
 				RepoLoop:
 					for _, repo := range repos {
@@ -458,7 +458,7 @@ func main() {
 						}
 
 						repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
-					}	
+					}
 					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
@@ -535,10 +535,10 @@ func main() {
 
 					Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
 					repos, err := GithubListReposByCustomSearch(query)
-					if err != nil {																	//			Why is err undefined?
+					if err != nil { //			Why is err undefined?
 						panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err)) //
 					}
-					
+
 					Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
 				RepoLoop:
 					for _, repo := range repos {
@@ -551,7 +551,7 @@ func main() {
 						}
 
 						repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
-					}	
+					}
 					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
