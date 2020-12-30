@@ -178,7 +178,7 @@ func main() {
 						"GitHub API rate: remaining %v/%v; resetting in %s",
 						resp.Rate.Remaining,
 						resp.Rate.Limit,
-						resp.Rate.Reset.Sub(time.Now()),
+						resp.Rate.Reset.Sub(time.Now()).Round(time.Second),
 					)
 				}
 			}
@@ -456,6 +456,19 @@ func main() {
 							repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
 						}
 					}
+					{ // Trim repoURLs if --start is provided.
+						if start > 0 && start > len(repoURLs) {
+							Fatalf(
+								"Got %v projects, but the --start flag value is set to %v",
+								len(repoURLs),
+								start,
+							)
+						}
+						if start > 0 {
+							Infof("Skipping %v projects", start-1)
+							repoURLs = repoURLs[start-1:]
+						}
+					}
 					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
@@ -475,8 +488,8 @@ func main() {
 						}
 					}
 					toBeFollowed = Deduplicate(toBeFollowed)
-
 					totalToBeFollowed := len(toBeFollowed)
+
 					Infof("Will follow %v projects...", totalToBeFollowed)
 					if !force {
 						CLIMustConfirmYes("Do you want to continue?")
@@ -489,18 +502,8 @@ func main() {
 
 					etac := eta.New(int64(totalToBeFollowed))
 
-					if start > 0 && start > totalToBeFollowed {
-						Fatalf(
-							"Got %v projects, but the --start flag value is set to %v",
-							totalToBeFollowed,
-							start,
-						)
-					}
 					// follow repos:
-					for repoURLIndex, repoURL := range toBeFollowed {
-						if start > 0 && repoURLIndex+1 < start {
-							continue
-						}
+					for _, repoURL := range toBeFollowed {
 						envelope := follower(repoURL, etac)
 						if envelope != nil {
 							// if the project was NOT already known to lgtm.com,
