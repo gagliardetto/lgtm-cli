@@ -11,7 +11,7 @@ require (
 	github.com/gagliardetto/gh-client v0.0.0-20201230205624-1ed4869642ed
 	github.com/gagliardetto/request v0.8.1-0.20190815080712-c8d37984afc2
 	github.com/gagliardetto/treeout v0.0.0-20190606173918-e39ca299e8d8 // indirect
-	github.com/gagliardetto/utilz v0.0.0-20201230231556-9c6d3fed593e
+	github.com/gagliardetto/utilz v0.0.0-20201231025840-08974c901981
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/goware/urlx v0.3.1
 	github.com/hako/durafmt v0.0.0-20200710122514-c0fb7b4da026

@@ -1440,6 +1440,120 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "x-list-query-results",
+				Usage: "[x] List projects of a query run (json).",
+				Action: func(c *cli.Context) error {
+
+					queryID := c.Args().First()
+					if queryID == "" {
+						return errors.New("query ID not provided")
+					}
+					minAlerts := c.Int("min-alerts")
+
+					took := NewTimer()
+					Infof("Getting results of query %s...", queryID)
+
+					var startCursor string
+					queryResults := make([]*GetQueryResultsResponseItem, 0)
+				GetterLoop:
+					for {
+						resp, err := client.GetQueryResults(queryID, OrderByNumAlerts, startCursor)
+						if err != nil {
+							panic(err)
+						}
+						if resp.Items == nil {
+							break GetterLoop
+						}
+
+						for _, item := range resp.Items {
+							if item.Stats == nil {
+								continue
+							}
+							if minAlerts > 0 && item.Stats.NumAlerts < minAlerts {
+								break GetterLoop
+							}
+							queryResults = append(queryResults, item)
+						}
+						if resp.Cursor == "" {
+							break GetterLoop
+						}
+						startCursor = resp.Cursor
+					}
+					Infof(
+						"Got %v results; took %s",
+						len(queryResults),
+						took(),
+					)
+
+					projectCount := len(queryResults)
+					chunkSize := 100
+					partsNumber := projectCount / chunkSize
+					if projectCount < chunkSize {
+						partsNumber = 1
+					} else {
+						partsNumber++
+					}
+
+					projectKeys := MapSlice(queryResults, func(i int) string {
+						return queryResults[i].ProjectKey
+					})
+
+					chunks := SplitStringSlice(partsNumber, projectKeys)
+
+					type Output struct {
+						Project *Project
+						Stats   *GetQueryResultsResponseStats
+					}
+					output := make([]*Output, 0)
+					for chunkIndex, chunk := range chunks {
+						Infof(
+							"Getting result chunk; chunk %v/%v...",
+							chunkIndex+1,
+							len(chunks),
+						)
+						took = NewTimer()
+						gotProjectResp, err := client.GetProjectsByKey(chunk...)
+						if err != nil {
+							Errorf(
+								"error while client.GetProjectsByKey for projects %s: %s",
+								projectKeys,
+								err,
+							)
+						}
+						Infof("took %s", took())
+
+						for projectKey, pr := range gotProjectResp.FullProjects {
+							out := &Output{
+								Project: pr,
+							}
+
+							{
+								got := FilterSlice(queryResults, func(i int) bool {
+									return queryResults[i].ProjectKey == projectKey
+								}).([]*GetQueryResultsResponseItem)
+								out.Stats = got[0].Stats
+							}
+							output = append(output, out)
+						}
+					}
+
+					js, err := json.Marshal(output)
+					if err != nil {
+						Fatalf("Error marshaling results to json: %s", err)
+					}
+
+					Ln(string(js))
+
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "min-alerts",
+						Usage: "Min number of alerts.",
+					},
+				},
+			},
 		},
 	}
 

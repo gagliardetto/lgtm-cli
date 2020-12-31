@@ -580,7 +580,7 @@ type QueryResponse struct {
 	Status string            `json:"status"`
 	Data   QueryResponseData `json:"data"`
 }
-type Stats struct {
+type QueryResponseStats struct {
 	AllRuns                int `json:"all_runs"`
 	Failed                 int `json:"failed"`
 	FinishedWithResults    int `json:"finished_with_results"`
@@ -589,14 +589,14 @@ type Stats struct {
 	PendingSchedulingTasks int `json:"pendingSchedulingTasks"`
 }
 type QueryResponseData struct {
-	Key                  string   `json:"key"`
-	QueryText            string   `json:"queryText"`
-	ExecutionDate        int64    `json:"executionDate"`
-	LanguageKey          string   `json:"languageKey"`
-	ProjectKeys          []string `json:"projectKeys"`
-	ProjectSelectionKeys []string `json:"projectSelectionKeys"`
-	QueryAllProjects     bool     `json:"queryAllProjects"`
-	Stats                Stats    `json:"stats"`
+	Key                  string             `json:"key"`
+	QueryText            string             `json:"queryText"`
+	ExecutionDate        int64              `json:"executionDate"`
+	LanguageKey          string             `json:"languageKey"`
+	ProjectKeys          []string           `json:"projectKeys"`
+	ProjectSelectionKeys []string           `json:"projectSelectionKeys"`
+	QueryAllProjects     bool               `json:"queryAllProjects"`
+	Stats                QueryResponseStats `json:"stats"`
 }
 
 //
@@ -1045,4 +1045,95 @@ func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*
 		}
 	}
 	return nil, false
+}
+
+type OrderBy string
+
+const (
+	OrderByNumAlerts    OrderBy = "num_alerts"
+	OrderByRunTime      OrderBy = "run_time"
+	OrderByProjectSize  OrderBy = "loc"
+	OrderByAlertDensity OrderBy = "alert_density"
+)
+
+func (cl *Client) GetQueryResults(queryID string, orderBy OrderBy, startCursor string) (*GetQueryResultsResponseData, error) {
+	req, err := cl.newRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	base := "https://lgtm.com/internal_api/v0.2/getQueryResults"
+	vals := url.Values{}
+	{
+		vals.Set("queryId", queryID)
+		vals.Set("limit", "10")
+		vals.Set("orderBy", string(orderBy))
+		if startCursor != "" {
+			vals.Set("startCursor", "")
+		}
+		vals.Set("apiVersion", cl.conf.APIVersion)
+	}
+
+	resp, err := req.Get(base + "?" + vals.Encode())
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, formatNotOKStatusCodeError(resp)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return nil, fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response GetQueryResultsResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+	}
+
+	if response.Status != STATUS_SUCCESS_STRING {
+		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+	}
+
+	return response.Data, nil
+}
+
+type GetQueryResultsResponse struct {
+	Status string                       `json:"status"`
+	Data   *GetQueryResultsResponseData `json:"data"`
+}
+type SrcVersion struct {
+	Value       string `json:"value"`
+	PrettyValue string `json:"prettyValue"`
+}
+type GetQueryResultsResponseStats struct {
+	QueryRunKey          string   `json:"queryRunKey"`
+	NumResults           int      `json:"numResults"`
+	NumExcludedResults   int      `json:"numExcludedResults"`
+	ResultsWereTruncated bool     `json:"resultsWereTruncated"`
+	Columns              []string `json:"columns"`
+	IsInAlertFormat      bool     `json:"isInAlertFormat"`
+	HasAlertResults      bool     `json:"hasAlertResults"`
+	NumAlerts            int      `json:"numAlerts"`
+}
+type GetQueryResultsResponseItem struct {
+	Key         string                        `json:"key"`
+	ProjectKey  string                        `json:"projectKey"`
+	Lang        string                        `json:"lang"`
+	SnapshotKey string                        `json:"snapshotKey"`
+	SrcVersion  *SrcVersion                   `json:"srcVersion"`
+	Done        bool                          `json:"done"`
+	Stats       *GetQueryResultsResponseStats `json:"stats,omitempty"`
+	Error       string                        `json:"error,omitempty"`
+}
+type GetQueryResultsResponseData struct {
+	Cursor string                         `json:"cursor"`
+	Items  []*GetQueryResultsResponseItem `json:"items"`
 }
