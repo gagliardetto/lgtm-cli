@@ -264,6 +264,13 @@ func main() {
 						}
 					}
 
+					matchAllPatterns := getGlobsThatMatchEverything(repoURLPatterns)
+					if len(matchAllPatterns) > 0 {
+						Infof("The following patterns will match all followed projects, and consequently all followed projects will be unfollowed.")
+						Infof("%s", Sq(matchAllPatterns))
+						CLIMustConfirmYes("Do you really want to unfollow all repositories?")
+					}
+
 					took := NewTimer()
 					Infof("Getting list of followed projects...")
 					projects, protoProjects, err := client.ListFollowedProjects()
@@ -286,7 +293,13 @@ func main() {
 
 					// unfollow projects:
 					for _, pr := range toBeUnfollowed {
-						unfollower(false, pr.Key, pr.ExternalURL.URL, etac)
+						message := pr.ExternalURL.URL
+
+						pattern, matched := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
+						if matched {
+							message += " " + Sf("(matched from %s pattern)", Lime(pattern))
+						}
+						unfollower(false, pr.Key, message, etac)
 					}
 					return nil
 				},
@@ -2849,7 +2862,7 @@ func formatNotOKStatusCodeError(resp *request.Response) error {
 		panic(err)
 	}
 	return fmt.Errorf(
-		"Status code: %v\nHeader: %s\nBody:\n\n %s",
+		"Status code: %v\nHeader:\n%s\nBody:\n\n %s",
 		resp.StatusCode,
 		Sq(resp.Header),
 		body,
@@ -2858,4 +2871,16 @@ func formatNotOKStatusCodeError(resp *request.Response) error {
 
 func isGlob(s string) bool {
 	return strings.Contains(s, "*")
+}
+
+// getGlobsThatMatchEverything returns all patterns that match
+// any repo.
+func getGlobsThatMatchEverything(patterns []string) []string {
+	var res []string
+	for _, pattern := range patterns {
+		if strings.HasSuffix(pattern, "/*/*") || strings.HasSuffix(pattern, "github.com/*") {
+			res = append(res, pattern)
+		}
+	}
+	return res
 }
