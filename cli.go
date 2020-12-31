@@ -1503,7 +1503,7 @@ func main() {
 
 					type Output struct {
 						Project *Project
-						Stats   *GetQueryResultsResponseStats
+						Result  *GetQueryResultsResponseItem
 					}
 					output := make([]*Output, 0)
 					for chunkIndex, chunk := range chunks {
@@ -1532,7 +1532,7 @@ func main() {
 								got := FilterSlice(queryResults, func(i int) bool {
 									return queryResults[i].ProjectKey == projectKey
 								}).([]*GetQueryResultsResponseItem)
-								out.Stats = got[0].Stats
+								out.Result = got[0]
 							}
 							output = append(output, out)
 						}
