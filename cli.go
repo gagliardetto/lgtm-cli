@@ -557,7 +557,7 @@ func main() {
 					}
 					if !strings.Contains(query, "fork:false") {
 						Warnf("The provided query does not exclude forks (lgtm.com does not support scanning forks).")
-						Warnf("This will reduce the number of usable results.")
+						Warnf("The results will contain forks, and that will reduce the number of usable results (the API can only return 1K results max).")
 						Warnf("You can exclude forks by adding fork:false to your query.")
 					}
 					limit := c.Int("limit")
