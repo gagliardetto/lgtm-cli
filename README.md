@@ -1,7 +1,7 @@
 ## Install
 
 ```bash
-go get github.com/gagliardetto/lgtm-cli
+go get -u github.com/gagliardetto/lgtm-cli
 
 make install
 
