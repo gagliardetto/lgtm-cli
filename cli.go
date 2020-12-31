@@ -1533,7 +1533,7 @@ func main() {
 					output := make([]*Output, 0)
 					for chunkIndex, chunk := range chunks {
 						Infof(
-							"Getting result chunk; chunk %v/%v...",
+							"Getting projects' meta; chunk %v/%v...",
 							chunkIndex+1,
 							len(chunks),
 						)
