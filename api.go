@@ -1051,6 +1051,7 @@ type OrderBy string
 
 const (
 	OrderByNumAlerts    OrderBy = "num_alerts"
+	OrderByNumResults   OrderBy = "num_results"
 	OrderByRunTime      OrderBy = "run_time"
 	OrderByProjectSize  OrderBy = "loc"
 	OrderByAlertDensity OrderBy = "alert_density"
@@ -1069,12 +1070,13 @@ func (cl *Client) GetQueryResults(queryID string, orderBy OrderBy, startCursor s
 		vals.Set("limit", "10")
 		vals.Set("orderBy", string(orderBy))
 		if startCursor != "" {
-			vals.Set("startCursor", "")
+			vals.Set("startCursor", startCursor)
 		}
 		vals.Set("apiVersion", cl.conf.APIVersion)
 	}
 
-	resp, err := req.Get(base + "?" + vals.Encode())
+	dst := base + "?" + vals.Encode()
+	resp, err := req.Get(dst)
 	if err != nil {
 		return nil, err
 	}

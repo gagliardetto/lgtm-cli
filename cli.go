@@ -1450,6 +1450,21 @@ func main() {
 						return errors.New("query ID not provided")
 					}
 					minAlerts := c.Int("min-alerts")
+					minResults := c.Int("min-results")
+					if minAlerts > 0 && minResults > 0 {
+						return errors.New("Cannot use both: min-alerts and min-results")
+					}
+
+					var orderBy OrderBy
+					if minAlerts > 0 {
+						orderBy = OrderByNumAlerts
+					}
+					if minResults > 0 {
+						orderBy = OrderByNumResults
+					}
+					if minAlerts == 0 && minResults == 0 {
+						orderBy = OrderByNumResults
+					}
 
 					took := NewTimer()
 					Infof("Getting results of query %s...", queryID)
@@ -1458,7 +1473,7 @@ func main() {
 					queryResults := make([]*GetQueryResultsResponseItem, 0)
 				GetterLoop:
 					for {
-						resp, err := client.GetQueryResults(queryID, OrderByNumAlerts, startCursor)
+						resp, err := client.GetQueryResults(queryID, orderBy, startCursor)
 						if err != nil {
 							panic(err)
 						}
@@ -1467,11 +1482,21 @@ func main() {
 						}
 
 						for _, item := range resp.Items {
-							if item.Stats == nil {
-								continue
+							{
+								if minAlerts > 0 && item.Stats == nil {
+									continue
+								}
+								if minAlerts > 0 && item.Stats.NumAlerts < minAlerts {
+									break GetterLoop
+								}
 							}
-							if minAlerts > 0 && item.Stats.NumAlerts < minAlerts {
-								break GetterLoop
+							{
+								if minResults > 0 && item.Stats == nil {
+									continue
+								}
+								if minResults > 0 && item.Stats.NumResults < minResults {
+									break GetterLoop
+								}
 							}
 							queryResults = append(queryResults, item)
 						}
@@ -1550,7 +1575,11 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:  "min-alerts",
-						Usage: "Min number of alerts.",
+						Usage: "Min number of alerts; will sort by alert count.",
+					},
+					&cli.IntFlag{
+						Name:  "min-results",
+						Usage: "Min number of results; will sort by result count.",
 					},
 				},
 			},
