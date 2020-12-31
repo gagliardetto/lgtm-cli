@@ -1540,7 +1540,7 @@ func main() {
 						took = NewTimer()
 						gotProjectResp, err := client.GetProjectsByKey(chunk...)
 						if err != nil {
-							Errorf(
+							Fatalf(
 								"error while client.GetProjectsByKey for projects %s: %s",
 								projectKeys,
 								err,
