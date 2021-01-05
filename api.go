@@ -462,6 +462,25 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 	return response.Data, nil
 }
 
+func (cl *Client) AddProjectToSelectionFromRepoName(selectionID string, repoName string) (bool, error) {
+
+	searchSuggestion, err := cl.GetSearchSuggestions(repoName)
+	if err != nil {
+		return false, err
+	}
+
+	if len(searchSuggestion) == 0 {
+		return false, nil
+	}
+
+	err = cl.AddProjectToSelection(selectionID, searchSuggestion[0].ProjectKey) // [0] because it will be the first match
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 type ProjectSelectionListResponse struct {
 	Status string                  `json:"status"`
 	Data   []*ProjectSelectionBare `json:"data"`

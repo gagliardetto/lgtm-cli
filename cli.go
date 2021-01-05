@@ -743,6 +743,145 @@ func main() {
 				},
 			},
 			{
+				Name:  "follow-and-add-to-list-by-code-search",
+				Usage: "Follow projects and adds them to a list by custom search on repositories code.",
+				Action: func(c *cli.Context) error {
+
+					// rerquired
+					query := c.Args().First()
+					if query == "" {
+						Fataln("must provide a query string")
+					}
+					projectListKeys := c.StringSlice("list-key")
+					if len(projectListKeys) == 0 {
+						Fataln("must provide a list key")
+					}
+
+					limit := c.Int("limit")
+					force := c.Bool("y")
+					noCheck := c.Bool("no-check")
+
+					repoURLs := make([]string, 0)
+					repoNames := make([]string, 0)
+					{
+						Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
+						repos, err := GithubListReposByCodeSearch(query, limit)
+						if err != nil {
+							panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err))
+						}
+
+						Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
+					RepoLoop:
+						for _, repo := range repos {
+							//repoURLs = append(repoURLs, repo.GetFullName()) // e.g. "kubernetes/dashboard"
+							isFork := repo.GetFork()
+							// "Currently we do not support analysis of forks. Consider adding the parent of the fork instead."
+							if isFork {
+								Warnf("Skipping fork %s", repo.GetFullName())
+								continue RepoLoop
+							}
+
+							repoURLs = append(repoURLs, repo.GetHTMLURL())    // e.g. "https://github.com/kubernetes/dashboard"
+							repoNames = append(repoNames, repo.GetFullName()) // e.g. "kubernetes/dashboard"
+						}
+					}
+
+					toBeFollowed := make([]string, 0)
+					if !noCheck { // exclude already-followed projects:
+						took := NewTimer()
+						Infof("Getting list of followed projects...")
+						projects, protoProjects, err := client.ListFollowedProjects()
+						if err != nil {
+							panic(err)
+						}
+						Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+
+						for _, repoURL := range repoURLs {
+							_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
+							_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
+							isNOTFollowed := !isFollowed && !isFollowedProto
+							if isNOTFollowed {
+								toBeFollowed = append(toBeFollowed, repoURL)
+							}
+						}
+						toBeFollowed = Deduplicate(toBeFollowed)
+					} else {
+						toBeFollowed = Deduplicate(repoURLs)
+						repoNames = Deduplicate(repoNames)
+					}
+
+					totalToBeFollowed := len(toBeFollowed)
+					Infof("Will follow %v projects...", totalToBeFollowed)
+					if !force {
+						CLIMustConfirmYes("Do you want to continue?")
+					}
+
+					// Write toBeFollowed to temp file:
+					saveTargetListToTempFile("follow-by-code-search", toBeFollowed)
+
+					followedNew := 0
+
+					etac := eta.New(int64(totalToBeFollowed))
+
+					// follow repos:
+					for _, repoURL := range toBeFollowed {
+						envelope := follower(repoURL, etac)
+						if envelope != nil {
+							// if the project was NOT already known to lgtm.com,
+							// sleep to avoid triggering too many new builds:
+							isNew := !envelope.IsKnown()
+							if isNew {
+								followedNew++
+								// sleep:
+								time.Sleep(waitDuration)
+							}
+						}
+					}
+					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
+
+					// add them to list
+					totalRepoNames := len(repoNames)
+					for len(repoNames) != 0 {
+						for repoNameIndex, repoName := range repoNames {
+							for _, projectListKey := range projectListKeys {
+								success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoName)
+								if err != nil {
+									panic(err)
+								}
+								if !success {
+									Warnf("Retrying later %s...", repoName) // Repo is new and hasn't been analysed yet.
+									break
+								} else {
+									Successf("Added %s to %s.", repoName, projectListKey)
+									repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
+								}
+							}
+						}
+					}
+					Successf("Added %v projects to provided projects' keys", totalRepoNames)
+
+					return nil
+				},
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "limit",
+						Usage: "Max number of code results.",
+					},
+					&cli.BoolFlag{
+						Name:  "force, y",
+						Usage: "Don't ask for confirmation.",
+					},
+					&cli.BoolFlag{
+						Name:  "no-check",
+						Usage: "Don't check for followed projects.",
+					},
+					&cli.StringSliceFlag{
+						Name:  "list-key, lk",
+						Usage: "Project list key to add the repo (can specify multiple).",
+					},
+				},
+			},
+			{
 				Name:  "query",
 				Usage: "Run a query on one or multiple projects.",
 				Action: func(c *cli.Context) error {
