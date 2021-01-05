@@ -1945,7 +1945,9 @@ func saveTargetListToTempFile(cmdName string, targets []string) {
 		}
 	}
 
-	writer.Flush()
+	if err := writer.Flush(); err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to temp file %s"), tmpfile.Name()))
 
