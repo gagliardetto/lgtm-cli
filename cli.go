@@ -804,11 +804,9 @@ func main() {
 								toBeFollowed = append(toBeFollowed, repoURL)
 							}
 						}
-						toBeFollowed = Deduplicate(toBeFollowed)
-					} else {
-						toBeFollowed = Deduplicate(repoURLs)
-						repoNames = Deduplicate(repoNames)
 					}
+					toBeFollowed = Deduplicate(repoURLs)
+					repoNames = Deduplicate(repoNames)
 
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
