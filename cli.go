@@ -744,7 +744,7 @@ func main() {
 			},
 			{
 				Name:  "follow-and-add-to-list-by-code-search",
-				Usage: "Follow projects and adds them to a list by custom search on repositories code.",
+				Usage: "Follow projects and add them to a list by custom search on repositories code.",
 				Action: func(c *cli.Context) error {
 
 					// rerquired
