@@ -1139,3 +1139,55 @@ type GetQueryResultsResponseData struct {
 	Cursor string                         `json:"cursor"`
 	Items  []*GetQueryResultsResponseItem `json:"items"`
 }
+type GetProjectBySlugResponse struct {
+	Status string                        `json:"status"`
+	Data   *GetProjectBySlugResponseData `json:"data"`
+}
+type GetProjectBySlugResponseData struct {
+	Left *Project `json:"left"`
+}
+
+func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
+	req, err := cl.newRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	base := "https://lgtm.com/internal_api/v0.2/getProjectBySlug"
+	vals := url.Values{}
+	{
+		vals.Set("slug", slug)
+		vals.Set("apiVersion", cl.conf.APIVersion)
+	}
+
+	dst := base + "?" + vals.Encode()
+	resp, err := req.Get(dst)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, formatNotOKStatusCodeError(resp)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return nil, fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response GetProjectBySlugResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+	}
+
+	if response.Status != STATUS_SUCCESS_STRING {
+		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+	}
+
+	return response.Data.Left, nil
+}

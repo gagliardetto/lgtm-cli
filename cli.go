@@ -1836,6 +1836,30 @@ type GitURL struct {
 	Repo string
 }
 
+func (grl *GitURL) Slug() string {
+	switch grl.Hostname {
+	case "github.com":
+		return Sf(
+			"g/%s/%s",
+			grl.User,
+			grl.Repo,
+		)
+	case "gitlab.com":
+		return Sf(
+			"gl/%s/%s",
+			grl.User,
+			grl.Repo,
+		)
+	case "bitbucket.org":
+		return Sf(
+			"b/%s/%s",
+			grl.User,
+			grl.Repo,
+		)
+	default:
+		panic(Sf("no known slug prefix for %s", grl.Hostname))
+	}
+}
 func (grl *GitURL) URL() string {
 	if grl.Port != "" {
 		if grl.Repo != "" {
