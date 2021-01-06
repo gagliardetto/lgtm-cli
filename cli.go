@@ -973,8 +973,8 @@ func main() {
 
 						excluded := c.StringSlice("exclude")
 
-						// if no repos specified, and flag --all is true, then query all:
-						if c.Bool("all") {
+						// if no repos specified, and flag --all-projects is true, then query all:
+						if c.Bool("all-projects") {
 							Infof("Gonna query all %v projects", len(projects))
 							for _, pr := range projects {
 								repoURLs = append(repoURLs, pr.ExternalURL.URL)
@@ -1009,7 +1009,25 @@ func main() {
 						}
 					}
 
-					projectListKeys := c.StringSlice("list-key")
+					projectListKeys := make([]string, 0)
+					if c.Bool("all-lists") {
+
+						Infof("Getting all lists...")
+						lists, err := client.ListProjectSelections()
+						if err != nil {
+							panic(err)
+						}
+
+						sort.Slice(lists, func(i, j int) bool {
+							return lists[i].Name < lists[j].Name
+						})
+						for _, list := range lists {
+							projectListKeys = append(projectListKeys, list.Key)
+						}
+
+					} else {
+						projectListKeys = c.StringSlice("list-key")
+					}
 
 					yes, err := CLIAskYesNo(Sf(
 						"Do you want to send the query %q to be run on %v projects and %v lists?",
@@ -1068,8 +1086,12 @@ func main() {
 						Usage: "Filepath to text file with list of repos.",
 					},
 					&cli.BoolFlag{
-						Name:  "all, a",
+						Name:  "all-projects, ap",
 						Usage: "Query all followed projects.",
+					},
+					&cli.BoolFlag{
+						Name:  "all-lists, al",
+						Usage: "Query all created lists.",
 					},
 				},
 			},
