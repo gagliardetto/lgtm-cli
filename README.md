@@ -194,6 +194,20 @@ lgtm query \
 	-q=/path/to/query.ql
 ```
 
+### Get results from a query ID
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX
+```
+
+#### Examples
+
+##### Get projects name
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX | 
+jq '.[].Project.displayName' | tr -d '"'
+```
+
 ---
 
 ## Legal
