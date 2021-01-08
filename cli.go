@@ -1659,6 +1659,7 @@ func main() {
 							}
 							queryResults = append(queryResults, item)
 						}
+						Infof("Already: %v", len(queryResults))
 						if resp.Cursor == "" {
 							break GetterLoop
 						}
