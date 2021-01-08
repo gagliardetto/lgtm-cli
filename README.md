@@ -212,7 +212,7 @@ jq '.[].Project.displayName' | tr -d '"'
 
 ## Legal
 
-The author and contributors of this script assumes no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
+The author and contributors of this script assume no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
 
 ## Credits
 
