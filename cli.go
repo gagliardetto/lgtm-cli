@@ -315,6 +315,8 @@ func main() {
 				Action: func(c *cli.Context) error {
 
 					lang := ToLower(c.String("lang"))
+					noCheck := c.Bool("no-check")
+					force := c.Bool("y")
 
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
@@ -333,6 +335,7 @@ func main() {
 					repoURLsRaw = Deduplicate(repoURLsRaw)
 
 					repoURLs := make([]string, 0)
+					repoNames := make([]string, 0)
 					for _, raw := range repoURLsRaw {
 						owner, isWholeUser, err := IsUserOnly(raw)
 						if err != nil {
@@ -364,7 +367,8 @@ func main() {
 									continue RepoLoop
 								}
 
-								repoURLs = append(repoURLs, repo.GetHTMLURL()) // e.g. "https://github.com/kubernetes/dashboard"
+								repoURLs = append(repoURLs, repo.GetHTMLURL())    // e.g. "https://github.com/kubernetes/dashboard"
+								repoNames = append(repoNames, repo.GetFullName()) // e.g. "kubernetes/dashboard"
 							}
 						} else {
 							parsed, err := ParseGitURL(raw, false)
@@ -372,29 +376,40 @@ func main() {
 								panic(err)
 							}
 							repoURLs = append(repoURLs, parsed.URL())
+							repoNames = append(repoNames, raw)
 						}
 					}
-
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
 					toBeFollowed := make([]string, 0)
-					// exclude already-followed projects:
-					for _, repoURL := range repoURLs {
-						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
-						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
-						isNOTFollowed := !isFollowed && !isFollowedProto
-						if isNOTFollowed {
-							toBeFollowed = append(toBeFollowed, repoURL)
+					if !noCheck {
+						took := NewTimer()
+						Infof("Getting list of followed projects...")
+						projects, protoProjects, err := client.ListFollowedProjects()
+						if err != nil {
+							panic(err)
 						}
+						Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+
+						// exclude already-followed projects:
+						for _, repoURL := range repoURLs {
+							_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
+							_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
+							isNOTFollowed := !isFollowed && !isFollowedProto
+							if isNOTFollowed {
+								toBeFollowed = append(toBeFollowed, repoURL)
+							}
+						}
+						toBeFollowed = Deduplicate(toBeFollowed)
+					} else {
+						toBeFollowed = Deduplicate(repoURLs)
 					}
+					repoNames = Deduplicate(repoNames)
 					totalToBeFollowed := len(toBeFollowed)
+
 					Infof("Will follow %v projects...", totalToBeFollowed)
+					if !force {
+						CLIMustConfirmYes("Do you want to continue?")
+					}
 
 					// Write toBeFollowed to temp file:
 					saveTargetListToTempFile("follow", toBeFollowed)
@@ -428,6 +443,14 @@ func main() {
 					&cli.StringFlag{
 						Name:  "lang, l",
 						Usage: "Filter github repos by language.",
+					},
+					&cli.BoolFlag{
+						Name:  "force, y",
+						Usage: "Don't ask for confirmation.",
+					},
+					&cli.BoolFlag{
+						Name:  "no-check",
+						Usage: "Don't check for followed projects.",
 					},
 				},
 			},
@@ -486,6 +509,7 @@ func main() {
 						if start > 0 {
 							Infof("Skipping %v projects", start-1)
 							repoURLs = repoURLs[start-1:]
+							repoNames = repoNames[start-1:]
 						}
 					}
 
