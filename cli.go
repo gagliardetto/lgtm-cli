@@ -82,19 +82,19 @@ func main() {
 	}
 
 	follower := func(u string, etac *eta.ETA) *Envelope {
-		defer etac.Done(1)
+		//defer etac.Done(1)
 
-		averagedETA := etac.GetETA()
-		thisETA := durafmt.Parse(averagedETA.Round(time.Second)).String()
+		//averagedETA := etac.GetETA()
+		//thisETA := durafmt.Parse(averagedETA.Round(time.Second)).String()
 
-		Infof(
-			"[%s](%v/%v) Following %s ...; ETA %s",
-			etac.GetFormattedPercentDone(),
-			etac.GetDone()+1,
-			etac.GetTotal(),
-			u,
-			thisETA,
-		)
+		//Infof(
+		//	"[%s](%v/%v) Following %s ...; ETA %s",
+		//	etac.GetFormattedPercentDone(),
+		//	etac.GetDone()+1,
+		//	etac.GetTotal(),
+		//	u,
+		//	thisETA,
+		//)
 
 		prj, err := client.FollowProject(u)
 		if err != nil {
@@ -110,15 +110,16 @@ func main() {
 			} else {
 				knownOrNew = LimeBG("[NEW]")
 			}
-			Successf(
-				"[%s](%v/%v) Followed %s %s; ETA %s",
-				etac.GetFormattedPercentDone(),
-				etac.GetDone()+1,
-				etac.GetTotal(),
-				knownOrNew,
-				u,
-				thisETA,
-			)
+			//Successf(
+			//	"[%s](%v/%v) Followed %s %s; ETA %s",
+			//	etac.GetFormattedPercentDone(),
+			//	etac.GetDone()+1,
+			//	etac.GetTotal(),
+			//	knownOrNew,
+			//	u,
+			//	thisETA,
+			//)
+			Successf("Followed %s %s", knownOrNew, u) //
 		}
 		return prj
 	}
