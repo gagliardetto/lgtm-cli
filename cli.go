@@ -555,7 +555,6 @@ func main() {
 									}
 									if !success {
 										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
-										break
 									} else {
 										Successf("Added %s to %s.", repoNames[repoNameIndex], projectListKey)
 										repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
@@ -704,7 +703,6 @@ func main() {
 									}
 									if !success {
 										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
-										break
 									} else {
 										Successf("Added %s to %s.", repoNames[repoNameIndex], projectListKey)
 										repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
@@ -845,7 +843,6 @@ func main() {
 									}
 									if !success {
 										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
-										break
 									} else {
 										Successf("Added %s to %s.", repoNames[repoNameIndex], projectListKey)
 										repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
@@ -1592,13 +1589,13 @@ func main() {
 					} else {
 						for len(repoNames) != 0 {
 							for repoNameIndex := len(repoNames) - 1; repoNameIndex >= 0; repoNameIndex-- { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
+								Infof("%s %v", repoNames[repoNameIndex], repoNameIndex)
 								success, err := client.AddProjectToSelectionFromRepoName(resp.Identity.Key, repoNames[repoNameIndex])
 								if err != nil {
 									panic(err)
 								}
 								if !success {
 									Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
-									break
 								} else {
 									Successf("Added %s to %s.", repoNames[repoNameIndex], resp.Identity.Key)
 									repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
