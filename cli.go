@@ -1589,7 +1589,6 @@ func main() {
 					} else {
 						for len(repoNames) != 0 {
 							for repoNameIndex := len(repoNames) - 1; repoNameIndex >= 0; repoNameIndex-- { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
-								Infof("%s %v", repoNames[repoNameIndex], repoNameIndex)
 								success, err := client.AddProjectToSelectionFromRepoName(resp.Identity.Key, repoNames[repoNameIndex])
 								if err != nil {
 									panic(err)
