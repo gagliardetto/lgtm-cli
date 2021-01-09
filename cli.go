@@ -507,8 +507,10 @@ func main() {
 								toBeFollowed = append(toBeFollowed, repoURL)
 							}
 						}
+						toBeFollowed = Deduplicate(toBeFollowed)
+					} else {
+						toBeFollowed = Deduplicate(repoURLs)
 					}
-					toBeFollowed = Deduplicate(toBeFollowed)
 					repoNames = Deduplicate(repoNames)
 					totalToBeFollowed := len(toBeFollowed)
 
@@ -654,11 +656,13 @@ func main() {
 								toBeFollowed = append(toBeFollowed, repoURL)
 							}
 						}
+						toBeFollowed = Deduplicate(toBeFollowed)
+					} else {
+						toBeFollowed = Deduplicate(repoURLs)
 					}
-					toBeFollowed = Deduplicate(toBeFollowed)
 					repoNames = Deduplicate(repoNames)
-
 					totalToBeFollowed := len(toBeFollowed)
+
 					Infof("Will follow %v projects...", totalToBeFollowed)
 					if !force {
 						CLIMustConfirmYes("Do you want to continue?")
@@ -793,8 +797,10 @@ func main() {
 								toBeFollowed = append(toBeFollowed, repoURL)
 							}
 						}
+						toBeFollowed = Deduplicate(toBeFollowed)
+					} else {
+						toBeFollowed = Deduplicate(repoURLs)
 					}
-					toBeFollowed = Deduplicate(repoURLs)
 					repoNames = Deduplicate(repoNames)
 
 					totalToBeFollowed := len(toBeFollowed)
