@@ -547,17 +547,17 @@ func main() {
 					if len(projectListKeys) > 0 {
 						totalRepoNames := len(repoNames)
 						for len(repoNames) != 0 {
-							for repoNameIndex, repoName := range repoNames {
-								for _, projectListKey := range projectListKeys {
-									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoName)
+							for repoNameIndex := len(repoNames) - 1; repoNameIndex >= 0; repoNameIndex-- {
+								for _, projectListKey := range projectListKeys { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
+									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoNames[repoNameIndex])
 									if err != nil {
 										panic(err)
 									}
 									if !success {
-										Warnf("Retrying later %s...", repoName) // Repo is new and hasn't been analysed yet.
+										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
 										break
 									} else {
-										Successf("Added %s to %s.", repoName, projectListKey)
+										Successf("Added %s to %s.", repoNames[repoNameIndex], projectListKey)
 										repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
 									}
 								}
@@ -696,17 +696,17 @@ func main() {
 					if len(projectListKeys) > 0 {
 						totalRepoNames := len(repoNames)
 						for len(repoNames) != 0 {
-							for repoNameIndex, repoName := range repoNames {
-								for _, projectListKey := range projectListKeys {
-									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoName)
+							for repoNameIndex := len(repoNames) - 1; repoNameIndex >= 0; repoNameIndex-- {
+								for _, projectListKey := range projectListKeys { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
+									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoNames[repoNameIndex])
 									if err != nil {
 										panic(err)
 									}
 									if !success {
-										Warnf("Retrying later %s...", repoName) // Repo is new and hasn't been analysed yet.
+										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
 										break
 									} else {
-										Successf("Added %s to %s.", repoName, projectListKey)
+										Successf("Added %s to %s.", repoNames[repoNameIndex], projectListKey)
 										repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
 									}
 								}
@@ -837,17 +837,17 @@ func main() {
 					if len(projectListKeys) > 0 {
 						totalRepoNames := len(repoNames)
 						for len(repoNames) != 0 {
-							for repoNameIndex, repoName := range repoNames {
-								for _, projectListKey := range projectListKeys {
-									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoName)
+							for repoNameIndex := len(repoNames) - 1; repoNameIndex >= 0; repoNameIndex-- {
+								for _, projectListKey := range projectListKeys { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
+									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoNames[repoNameIndex])
 									if err != nil {
 										panic(err)
 									}
 									if !success {
-										Warnf("Retrying later %s...", repoName) // Repo is new and hasn't been analysed yet.
+										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
 										break
 									} else {
-										Successf("Added %s to %s.", repoName, projectListKey)
+										Successf("Added %s to %s.", repoNames[repoNameIndex], projectListKey)
 										repoNames = append(repoNames[:repoNameIndex], repoNames[repoNameIndex+1:]...) // https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/ (We need to preserve order)
 									}
 								}
