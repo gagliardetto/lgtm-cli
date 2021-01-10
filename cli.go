@@ -575,7 +575,7 @@ func main() {
 								for _, projectListKey := range projectListKeys { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
 									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoNames[repoNameIndex])
 									if err != nil {
-										Warnf(err)
+										Errorf(err)
 									}
 									if !success {
 										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
@@ -723,7 +723,7 @@ func main() {
 								for _, projectListKey := range projectListKeys { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
 									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoNames[repoNameIndex])
 									if err != nil {
-										Warnf(err)
+										Errorf(err)
 									}
 									if !success {
 										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
@@ -863,7 +863,7 @@ func main() {
 								for _, projectListKey := range projectListKeys { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
 									success, err := client.AddProjectToSelectionFromRepoName(projectListKey, repoNames[repoNameIndex])
 									if err != nil {
-										Warnf(err)
+										Errorf(err)
 									}
 									if !success {
 										Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
@@ -1615,7 +1615,7 @@ func main() {
 							for repoNameIndex := len(repoNames) - 1; repoNameIndex >= 0; repoNameIndex-- { // https://stackoverflow.com/questions/29005825/how-to-remove-element-of-struct-array-in-loop-in-golang
 								success, err := client.AddProjectToSelectionFromRepoName(resp.Identity.Key, repoNames[repoNameIndex])
 								if err != nil {
-									Warnf(err)
+									Errorf(err)
 								}
 								if !success {
 									Warnf("Retrying later %s...", repoNames[repoNameIndex]) // Repo is new and hasn't been analysed yet.
