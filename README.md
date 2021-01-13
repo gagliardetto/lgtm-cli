@@ -199,12 +199,26 @@ lgtm --wait=5s rebuild-proto --force
 
 ### Run a query on a specific "project list"
 
+By list **name** (can specify multiple):
+
 ```bash
 lgtm query \
-	--list-key=0123456789 \
+	--list="foo" \
+	--list="bar" \
 	-lang=go \
 	-q=/path/to/query.ql
 ```
+
+or by list **key** (can specify multiple):
+
+```bash
+lgtm query \
+	--list-key=0123456789 \
+	--list-key=0987654321 \
+	-lang=go \
+	-q=/path/to/query.ql
+```
+
 
 ### Run a query on one or more projects
 

@@ -786,6 +786,10 @@ func main() {
 						Name:  "list-key, lk",
 						Usage: "Project list key on which to run the query (can specify multiple).",
 					},
+					&cli.StringSliceFlag{
+						Name:  "list",
+						Usage: "Project list name on which to run the query (can specify multiple).",
+					},
 					&cli.StringFlag{
 						Name:  "lang, l",
 						Usage: "Language of the query project.",
@@ -964,6 +968,24 @@ func main() {
 					}
 
 					projectListKeys := c.StringSlice("list-key")
+					projectListNames := c.StringSlice("list")
+
+					if len(projectListNames) > 0 {
+						// Add project lists by name:
+						lists, err := client.ListProjectSelections()
+						if err != nil {
+							panic(err)
+						}
+
+						for _, name := range projectListNames {
+							list := lists.ByName(name)
+							if list == nil {
+								Warnf("List %q not found; skipping", name)
+							} else {
+								projectListKeys = append(projectListKeys, list.Key)
+							}
+						}
+					}
 
 					yes, err := CLIAskYesNo(Sf(
 						"Do you want to send the query %q to be run on %v projects and %v lists?",
