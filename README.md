@@ -5,10 +5,24 @@ go get -u github.com/gagliardetto/lgtm-cli
 
 make install
 
-export LGTM_CLI_CONFIG=/path/to/credentials.json # see example_credentials.json
+export LGTM_CLI_CONFIG=/path/to/lgtm.com_credentials.json # see example below
 ```
 
-## Example `credentials.json`
+or
+
+```bash
+cd $(mktemp -d)
+
+git clone https://github.com/gagliardetto/lgtm-cli.git
+
+cd lgtm-cli
+
+make install
+
+export LGTM_CLI_CONFIG=/path/to/lgtm.com_credentials.json # see example below
+```
+
+## Example `lgtm.com_credentials.json`
 
 ```json
 {
@@ -23,6 +37,10 @@ export LGTM_CLI_CONFIG=/path/to/credentials.json # see example_credentials.json
   }
 }
 ```
+
+You can intercept the lgtm.com session values from Chrome WebDev tools (and similar) after you've logged into lgtm.com.
+
+As for the GitHub token, one with **zero** permissions is advised.
 
 ---
 
@@ -62,10 +80,12 @@ lgtm follow github
 ### Follow all projects of a specific language (experimental)
 
 ```bash
-lgtm follow-by-lang python
+lgtm follow-by-lang --limit=101 python
 ```
 
-### Follow all projects from a specific search query on repository metadata (limited to first 1K results)
+### Follow all projects from a specific search query on repository metadata
+
+Results are limited (by the GitHub API) to the first 1K items.
 
 Follow GitHub repositories that match your provided **repository search query**.
 
@@ -74,17 +94,19 @@ For query syntax, see : https://docs.github.com/en/free-pro-team@latest/github/s
 **NOTE:** lgtm.com does not support fork scanning, so to get more relevant repositories, it's always advised to include `fork:false` in your search query.
 
 ```bash
-lgtm follow-by-meta-search 'jquery "hello world" in:name,description language:javascript fork:false'
+lgtm follow-by-meta-search --limit=101 'jquery "hello world" in:name,description language:javascript fork:false'
 ```
 
-### Follow all projects from a specific code search query (limited to first 1K results)
+### Follow all projects from a specific code search query
+
+Results are limited (by the GitHub API) to the first 1K items.
 
 Follow GitHub repositories that match your provided **code search query**.
 
 For query syntax, see: https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-code
 
 ```bash
-lgtm follow-by-code-search 'from flask import Flask language:python filename:"__init__.py"'
+lgtm follow-by-code-search --limit=101 'from flask import Flask language:python filename:"__init__.py"'
 ```
 
 ### List all lists
@@ -102,7 +124,7 @@ lgtm create-list "name_of_list"
 ### List projects in a list
 
 ```bash
-lgtm list name_of_list
+lgtm list "name_of_list"
 ```
 
 ### Add one or more projects to a list
@@ -121,11 +143,13 @@ lgtm add-to-list \
 	-f=projects.txt
 ```
 
-### Delete a list (NOTE: projects will NOT be unfollowed if they are followed)
+### Delete a list
 
 ```bash
-lgtm delete-list "test-list"
+lgtm delete-list "name_of_list"
 ```
+
+**NOTE**: projects will NOT be unfollowed if they are followed.
 
 ### Unfollow one or more projects
 
@@ -142,17 +166,21 @@ lgtm unfollow \
 	-f=projects.txt
 ```
 
-### Unfollow all projects from a certain owner (e.g. all projects from kubernetes owner)
+### Unfollow all projects from a certain owner
+
+Example: unfollow all projects from kubernetes owner.
 
 ```bash
 lgtm unfollow kubernetes
 ```
 
-### Rebuild followed projects for a specific language (default: rebuild ONLY projects that don't have a build for that language, yet)
+### Rebuild followed projects for a specific language
 
 ```bash
 lgtm --wait=30s rebuild --lang=go
 ```
+
+Default: rebuild ONLY projects that don't have a build for that language, yet.
 
 ### Trigger a build attempt for proto-projects
 
