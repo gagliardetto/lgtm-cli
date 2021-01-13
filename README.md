@@ -226,6 +226,26 @@ lgtm query \
 
 ---
 
+## Known errors
+
+### Cannot get list of followed projects
+
+Multiple commands do some checks and optimizzations that rely on getting the list of followed projects.
+
+When you follow many projects (a few thousands, probably about 5K or more), the lgtm.com API endpoint that lists followed projects does timeout.
+
+To overcome that, you can use the `--ignore-followed-errors` flag to use alternative methods to complete the command.
+
+Example:
+
+```bash
+lgtm --ignore-followed-errors unfollow kubernetes/kubernetes
+```
+
+This of course won't work for commands like `lgtm followed` or `lgtm unfollow-all`.
+
+---
+
 ## Legal
 
 The author of this script assumes no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
