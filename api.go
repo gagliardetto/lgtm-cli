@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/gagliardetto/request"
@@ -105,7 +104,7 @@ func (cl *Client) ListFollowedProjects() ([]*Project, []*ProtoProject, error) {
 		return nil, nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil, formatNotOKStatusCodeError(resp)
+		return nil, nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -140,11 +139,10 @@ func (cl *Client) ListFollowedProjects() ([]*Project, []*ProtoProject, error) {
 	return projectList, protoProjectList, nil
 }
 
-type CommonResponse struct {
-	Status string `json:"status"`
-}
-
-const STATUS_SUCCESS_STRING = "success"
+const (
+	STATUS_SUCCESS_STRING = "success"
+	STATUS_ERROR_STRING   = "error"
+)
 
 func (cl *Client) UnfollowProject(key string) error {
 
@@ -162,14 +160,14 @@ func (cl *Client) UnfollowProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -182,7 +180,7 @@ func (cl *Client) UnfollowProject(key string) error {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 
 	return nil
@@ -203,14 +201,14 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -223,15 +221,15 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 
 	return nil
 }
 
 type FollowProjectResponse struct {
-	Status string    `json:"status"`
-	Data   *Envelope `json:"data"`
+	*StatusResponse
+	Data *Envelope `json:"data"`
 }
 
 func (cl *Client) FollowProject(u string) (*Envelope, error) {
@@ -250,7 +248,7 @@ func (cl *Client) FollowProject(u string) (*Envelope, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -270,7 +268,7 @@ func (cl *Client) FollowProject(u string) (*Envelope, error) {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data, nil
@@ -292,14 +290,14 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -312,7 +310,7 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 
 	return nil
@@ -334,14 +332,14 @@ func (cl *Client) CreateProjectSelection(name string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -354,7 +352,7 @@ func (cl *Client) CreateProjectSelection(name string) error {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 
 	return nil
@@ -387,14 +385,14 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -406,15 +404,15 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 
 	return nil
 }
 
 type SearchSuggestionsResponse struct {
-	Status string                  `json:"status"`
-	Data   []*SearchSuggestionItem `json:"data"`
+	*StatusResponse
+	Data []*SearchSuggestionItem `json:"data"`
 }
 type SearchSuggestionItem struct {
 	Text       string `json:"text"`
@@ -440,7 +438,7 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -458,20 +456,35 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 	if err != nil {
 		return nil, fmt.Errorf("error while unmarshaling: %s", err)
 	}
+	if response.Status != STATUS_SUCCESS_STRING {
+		return nil, response.StatusResponse
+	}
 
 	return response.Data, nil
 }
 
 type ProjectSelectionListResponse struct {
-	Status string                  `json:"status"`
-	Data   []*ProjectSelectionBare `json:"data"`
+	*StatusResponse
+	Data []*ProjectSelectionBare `json:"data"`
 }
 type ProjectSelectionBare struct {
 	Key  string `json:"key"`
 	Name string `json:"name"`
 }
 
-func (cl *Client) ListProjectSelections() ([]*ProjectSelectionBare, error) {
+type ProjectSelectionBareSlice []*ProjectSelectionBare
+
+//
+func (lists ProjectSelectionBareSlice) ByName(name string) *ProjectSelectionBare {
+	for _, v := range lists {
+		if v.Name == name {
+			return v
+		}
+	}
+	return nil
+}
+
+func (cl *Client) ListProjectSelections() (ProjectSelectionBareSlice, error) {
 
 	req, err := cl.newRequest()
 	if err != nil {
@@ -486,7 +499,7 @@ func (cl *Client) ListProjectSelections() ([]*ProjectSelectionBare, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -506,15 +519,15 @@ func (cl *Client) ListProjectSelections() ([]*ProjectSelectionBare, error) {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data, nil
 }
 
 type ListProjectsInSelectionResponse struct {
-	Status string                `json:"status"`
-	Data   *ProjectSelectionFull `json:"data"`
+	*StatusResponse
+	Data *ProjectSelectionFull `json:"data"`
 }
 type Identity struct {
 	Key  string `json:"key"`
@@ -543,7 +556,7 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -563,7 +576,7 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data, nil
@@ -577,8 +590,8 @@ type QueryConfig struct {
 }
 
 type QueryResponse struct {
-	Status string            `json:"status"`
-	Data   QueryResponseData `json:"data"`
+	*StatusResponse
+	Data QueryResponseData `json:"data"`
 }
 type QueryResponseStats struct {
 	AllRuns                int `json:"all_runs"`
@@ -625,7 +638,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -645,7 +658,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return &response.Data, nil
@@ -744,8 +757,8 @@ type ExternalURL struct {
 type Modes map[string]string
 
 type ProjectListResponse struct {
-	Status string      `json:"status"`
-	Data   []*Envelope `json:"data"`
+	*StatusResponse
+	Data []*Envelope `json:"data"`
 }
 
 func (cl *Client) RebuildProtoProject(key string) error {
@@ -765,14 +778,14 @@ func (cl *Client) RebuildProtoProject(key string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -785,7 +798,7 @@ func (cl *Client) RebuildProtoProject(key string) error {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 
 	return nil
@@ -818,14 +831,14 @@ func (cl *Client) NewBuildAttempt(projectKey string, lang string) error {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -837,7 +850,7 @@ func (cl *Client) NewBuildAttempt(projectKey string, lang string) error {
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 	return nil
 }
@@ -861,14 +874,14 @@ func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error 
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return formatNotOKStatusCodeError(resp)
+		return formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
 		return fmt.Errorf("error while getting Reader: %s", err)
 	}
-	var response CommonResponse
+	var response StatusResponse
 	err = func() error {
 		defer closer()
 		defer resp.Body.Close()
@@ -880,14 +893,14 @@ func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error 
 		return fmt.Errorf("error while unmarshaling: %s", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
-		return fmt.Errorf("status string is not success: %s", response.Status)
+		return &response
 	}
 	return nil
 }
 
 type GetProjectLatestStateStatsResponse struct {
-	Status string                `json:"status"`
-	Data   *LatestStateStatsData `json:"data"`
+	*StatusResponse
+	Data *LatestStateStatsData `json:"data"`
 }
 type Rating struct {
 	Score    float64 `json:"score"`
@@ -935,7 +948,7 @@ func (cl *Client) GetProjectLatestStateStats(projectKey string) (*LatestStateSta
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -955,15 +968,15 @@ func (cl *Client) GetProjectLatestStateStats(projectKey string) (*LatestStateSta
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data, nil
 }
 
 type GetProjectsByKeyResponse struct {
-	Status string                        `json:"status"`
-	Data   *GetProjectsByKeyResponseData `json:"data"`
+	*StatusResponse
+	Data *GetProjectsByKeyResponseData `json:"data"`
 }
 
 type GetProjectsByKeyResponseData struct {
@@ -996,7 +1009,7 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1016,35 +1029,10 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data, nil
-}
-func isAlreadyFollowedProject(projects []*Project, projectURL string) (*Project, bool) {
-	for _, pr := range projects {
-		alreadyFollowed := ToLower(projectURL) == ToLower(pr.ExternalURL.URL)
-		if alreadyFollowed {
-			return pr, true
-		}
-	}
-	return nil, false
-}
-
-func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*ProtoProject, bool) {
-	withDotGitSuffix := ""
-	if !strings.HasSuffix(projectURL, ".git") {
-		withDotGitSuffix = projectURL + ".git"
-	} else {
-		withDotGitSuffix = projectURL
-	}
-	for _, pr := range protoProjects {
-		alreadyFollowed := (ToLower(projectURL) == ToLower(pr.CloneURL)) || (ToLower(withDotGitSuffix) == ToLower(pr.CloneURL))
-		if alreadyFollowed {
-			return pr, true
-		}
-	}
-	return nil, false
 }
 
 type OrderBy string
@@ -1081,7 +1069,7 @@ func (cl *Client) GetQueryResults(queryID string, orderBy OrderBy, startCursor s
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1101,15 +1089,15 @@ func (cl *Client) GetQueryResults(queryID string, orderBy OrderBy, startCursor s
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data, nil
 }
 
 type GetQueryResultsResponse struct {
-	Status string                       `json:"status"`
-	Data   *GetQueryResultsResponseData `json:"data"`
+	*StatusResponse
+	Data *GetQueryResultsResponseData `json:"data"`
 }
 type SrcVersion struct {
 	Value       string `json:"value"`
@@ -1140,11 +1128,45 @@ type GetQueryResultsResponseData struct {
 	Items  []*GetQueryResultsResponseItem `json:"items"`
 }
 type GetProjectBySlugResponse struct {
-	Status string                        `json:"status"`
-	Data   *GetProjectBySlugResponseData `json:"data"`
+	*StatusResponse
+	Data *GetProjectBySlugResponseData `json:"data"`
 }
 type GetProjectBySlugResponseData struct {
 	Left *Project `json:"left"`
+}
+
+type StatusResponse struct {
+	Status      string `json:"status"`
+	ErrorString string `json:"error"`
+	Message     string `json:"message"`
+}
+
+//
+func (status *StatusResponse) IsNotFound() bool {
+	return status.Status == STATUS_ERROR_STRING && status.ErrorString == "not found"
+}
+
+func isStatusResponseError(err error) bool {
+	_, ok := err.(*StatusResponse)
+	return ok
+}
+
+//
+func (status *StatusResponse) Error() string {
+	if status.Status == STATUS_SUCCESS_STRING {
+		return Sf(
+			"resp.status=%q; resp.error=%q; resp.message=%q",
+			status.Status,
+			status.ErrorString,
+			status.Message,
+		)
+	}
+	return Sf(
+		"resp.status is not 'success', but %q; resp.error=%q; resp.message=%q",
+		status.Status,
+		status.ErrorString,
+		status.Message,
+	)
 }
 
 func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
@@ -1166,7 +1188,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, formatNotOKStatusCodeError(resp)
+		return nil, formatHTTPNotOKStatusCodeError(resp)
 	}
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
@@ -1186,8 +1208,41 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
-		return nil, fmt.Errorf("status string is not success: %s", response.Status)
+		return nil, response.StatusResponse
 	}
 
 	return response.Data.Left, nil
+}
+
+// formatHTTPNotOKStatusCodeError is used to format an error when the status code is not 200.
+func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
+	{ // Try parsing the response body as a StatusResponse:
+		reader, closer, err := resp.DecompressedReaderFromPool()
+		if err != nil {
+			panic(fmt.Errorf("error while getting Reader: %s", err))
+		}
+		var errResponse StatusResponse
+		err = func() error {
+			defer closer()
+			defer resp.Body.Close()
+			decoder := json.NewDecoder(reader)
+
+			return decoder.Decode(&errResponse)
+		}()
+		if err == nil {
+			return &errResponse
+		}
+	}
+
+	// Get the body as text:
+	body, err := resp.Text()
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Errorf(
+		"Status code: %v\nHeader:\n%s\nBody:\n\n %s",
+		resp.StatusCode,
+		Sq(resp.Header),
+		body,
+	)
 }
