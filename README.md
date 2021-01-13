@@ -46,6 +46,8 @@ As for the GitHub token, one with **zero** permissions is advised.
 
 ## LGTM-CLI usage
 
+For the complete docs about all the commands: `lgtm help`; or for a specific command: `lgtm help <command>`
+
 ### Unfollow all followed projects
 
 ```bash
