@@ -84,6 +84,8 @@ github.com/gagliardetto/utilz v0.0.0-20201231024709-f6086ead43af h1:wG/+6uNZZa4D
 github.com/gagliardetto/utilz v0.0.0-20201231024709-f6086ead43af/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
 github.com/gagliardetto/utilz v0.0.0-20201231025840-08974c901981 h1:dYqU+koQHYJlNSZHLi1/PGCL2sSsRoi1WtGOR62OMh0=
 github.com/gagliardetto/utilz v0.0.0-20201231025840-08974c901981/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
+github.com/gagliardetto/utilz v0.0.0-20210102013557-6ca959bfa74c h1:pQj2iNYuCMwcujtKoz3gxvCup9qO6XyllV4TnGWG5qI=
+github.com/gagliardetto/utilz v0.0.0-20210102013557-6ca959bfa74c/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=

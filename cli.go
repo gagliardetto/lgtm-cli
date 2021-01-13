@@ -12,12 +12,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gagliardetto/bianconiglio"
 	"github.com/gagliardetto/eta"
 	ghc "github.com/gagliardetto/gh-client"
-	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/google/go-github/github"
 	"github.com/goware/urlx"
@@ -38,8 +38,9 @@ var (
 
 func main() {
 	var configFilepath string
-	var waitDuration time.Duration
 	var client *Client
+	var waitDuration time.Duration
+	var ignoreFollowedErrors bool
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	unfollower := func(isProto bool, key string, name string, etac *eta.ETA) {
@@ -125,6 +126,8 @@ func main() {
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	app := &cli.App{
+		Name:        "lgtm-cli",
+		Description: "Unofficial lgtm.com CLI — https://github.com/gagliardetto/lgtm-cli",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "conf",
@@ -136,6 +139,11 @@ func main() {
 				Usage:       "Wait duration between requests.",
 				Destination: &waitDuration,
 			},
+			&cli.BoolFlag{
+				Name:        "ignore-followed-errors",
+				Usage:       "Ignore errors that happen while getting list of followed projects (when that is acceptable).",
+				Destination: &ignoreFollowedErrors,
+			},
 		},
 		Before: func(c *cli.Context) error {
 
@@ -146,14 +154,14 @@ func main() {
 				return errors.New(c.App.Usage)
 			}
 
-			// if the flag is not set, use env variable:
+			// If the conf flag is not set, use env variable:
 			if configFilepath == "" {
 				configFilepath = configFilepathFromEnv
 			}
 
 			conf, err := LoadConfigFromFile(configFilepath)
 			if err != nil {
-				panic(err)
+				Fatalf("Wrror while loading config: %s", err)
 			}
 			if err := conf.Validate(); err != nil {
 				Fatalf("Config is not valid: %s", err)
@@ -164,7 +172,7 @@ func main() {
 				panic(err)
 			}
 
-			// setup github client:
+			// Setup a new github client:
 			ghClient = ghc.NewClient(conf.GitHub.Token)
 
 			ghc.ResponseCallback = func(resp *github.Response) {
@@ -180,26 +188,23 @@ func main() {
 					)
 				}
 			}
-			//IsExitingFunc = IsExiting
 			return nil
 		},
 		Commands: []cli.Command{
 			{
 				Name:  "unfollow-all",
-				Usage: "Unfollow all currently followed repositories (\"projects\".",
+				Usage: "Unfollow all currently followed repositories (a.k.a. \"projects\").",
 				Action: func(c *cli.Context) error {
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
+					cache, err := client.GetFollowedCache()
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
-					totalProjects := len(projects)
-					totalProtoProjects := len(protoProjects)
+
+					totalProjects := cache.NumProjects()
+					totalProtoProjects := cache.NumProto()
 					total := totalProjects + totalProtoProjects
 
-					Infof("You are following %v projects", total)
+					Infof("You are following a total of %v repos", total)
 
 					if total == 0 {
 						return nil
@@ -208,32 +213,32 @@ func main() {
 
 					etac := eta.New(int64(total))
 
-					for _, pr := range projects {
-						unfollower(false, pr.Key, pr.ExternalURL.URL, etac)
-					}
-					for _, proto := range protoProjects {
+					for _, proto := range cache.ProtoProjects() {
 						unfollower(true, proto.Key, proto.CloneURL, etac)
 					}
+					for _, pr := range cache.Projects() {
+						unfollower(false, pr.Key, pr.ExternalURL.URL, etac)
+					}
+
 					return nil
 				},
 			},
 			{
 				Name:  "unfollow",
 				Usage: "Unfollow one or more projects.",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "repos, f",
+						Usage: "Filepath to text file with list of repos (can use flag multiple times).",
+					},
+				},
 				Action: func(c *cli.Context) error {
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
+						// Load repo list from file(s):
 						repoListFilepaths := c.StringSlice("f")
-						for _, path := range repoListFilepaths {
-							err := ReadConfigLinesAsString(path, func(line string) bool {
-								repoURLsRaw = append(repoURLsRaw, line)
-								return true
-							})
-							if err != nil {
-								return err
-							}
-						}
+						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
 
@@ -264,53 +269,126 @@ func main() {
 
 					matchAllPatterns := getGlobsThatMatchEverything(repoURLPatterns)
 					if len(matchAllPatterns) > 0 {
-						Infof("The following patterns will match all followed projects, and consequently all followed projects will be unfollowed.")
+						Infof("The following patterns will match all followed projects, and consequently *all* followed projects will be unfollowed.")
 						Infof("%s", Sq(matchAllPatterns))
-						CLIMustConfirmYes("Do you really want to unfollow all repositories?")
+						CLIMustConfirmYes("Do you really want to unfollow all projects?")
 					}
 
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
-
-					toBeUnfollowed := make([]*Project, 0)
-					// match repos against list of repos followed:
-					for _, pr := range projects {
-						_, isToBeUnfollowed := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
-						if isToBeUnfollowed {
-							toBeUnfollowed = append(toBeUnfollowed, pr)
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
 						}
 					}
-					Infof("Will unfollow %v projects...", len(toBeUnfollowed))
+					if hasCache {
+						// We got the list of followed projects, so we can use it:
 
-					etac := eta.New(int64(len(toBeUnfollowed)))
+						// Match projects against list of repos followed:
+						projectsToBeUnfollowed := Filter(cache.Projects(),
+							func(i int, pr *Project) bool {
+								_, isToBeUnfollowed := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
+								return isToBeUnfollowed
+							}).([]*Project)
 
-					// unfollow projects:
-					for _, pr := range toBeUnfollowed {
-						message := pr.ExternalURL.URL
+						protoToBeUnfollowed := Filter(cache.ProtoProjects(),
+							func(i int, pr *ProtoProject) bool {
+								_, isToBeUnfollowed := HasMatch(trimDotGit(pr.CloneURL), repoURLPatterns)
+								return isToBeUnfollowed
+							}).([]*ProtoProject)
 
-						pattern, matched := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
-						if matched {
-							message += " " + Sf("(matched from %s pattern)", Lime(pattern))
+						Infof(
+							"Will unfollow %v projects and %v proto-projects...",
+							len(projectsToBeUnfollowed),
+							len(protoToBeUnfollowed),
+						)
+						total := len(projectsToBeUnfollowed) + len(protoToBeUnfollowed)
+						if total == 0 {
+							return nil
 						}
-						unfollower(false, pr.Key, message, etac)
+
+						etac := eta.New(int64(total))
+
+						// Unfollow projects:
+						for _, pr := range projectsToBeUnfollowed {
+							message := pr.ExternalURL.URL
+
+							pattern, matched := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
+							if matched {
+								message += " " + Sf("(matched from %s pattern)", Lime(pattern))
+							}
+							unfollower(false, pr.Key, message, etac)
+						}
+						// Unfollow proto-projects:
+						for _, pr := range protoToBeUnfollowed {
+							message := pr.CloneURL
+
+							pattern, matched := HasMatch(trimDotGit(pr.CloneURL), repoURLPatterns)
+							if matched {
+								message += " " + Sf("(matched from %s pattern)", Lime(pattern))
+							}
+							unfollower(true, pr.Key, message, etac)
+						}
+					} else {
+						// we don't have the cache, so let's unfollow anything we can
+						// with the information we have:
+						projectKeys := make(map[string]string)
+						for _, repoURL := range repoURLPatterns {
+							if isGlob(repoURL) {
+								// Skip because not a complete URL.
+								Infof("Skipping %s", repoURL)
+								continue
+							}
+							parsed, err := ParseGitURL(repoURL, true)
+							if err != nil {
+								panic(err)
+							}
+							isWholeUser := parsed.Repo == ""
+							if isWholeUser {
+								// Skip because not a complete URL.
+								Infof("Skipping %s", repoURL)
+								continue
+							}
+
+							pr, err := client.GetProjectBySlug(parsed.Slug())
+							if err != nil {
+								if isStatusResponseError(err) && err.(*StatusResponse).IsNotFound() {
+									Warnf(
+										"Project %s is not a built project.",
+										trimGithubPrefix(repoURL),
+									)
+								} else {
+									// General error
+									panic(err)
+								}
+							} else {
+								projectKeys[pr.ExternalURL.URL] = pr.Key
+							}
+						}
+
+						etac := eta.New(int64(len(projectKeys)))
+						for projectURL, projectKey := range projectKeys {
+							unfollower(false, projectKey, projectURL, etac)
+						}
 					}
 					return nil
-				},
-				Flags: []cli.Flag{
-					&cli.StringSliceFlag{
-						Name:  "repos, f",
-						Usage: "Filepath to text file with list of repos.",
-					},
 				},
 			},
 			{
 				Name:  "follow",
 				Usage: "Follow one or more projects.",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "repos, f",
+						Usage: "Filepath to text file with list of repos.",
+					},
+					&cli.StringFlag{
+						Name:  "lang, l",
+						Usage: "Filter github repos by language.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					lang := ToLower(c.String("lang"))
@@ -319,15 +397,7 @@ func main() {
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
-						for _, path := range repoListFilepaths {
-							err := ReadConfigLinesAsString(path, func(line string) bool {
-								repoURLsRaw = append(repoURLsRaw, line)
-								return true
-							})
-							if err != nil {
-								return err
-							}
-						}
+						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
 
@@ -374,23 +444,18 @@ func main() {
 						}
 					}
 
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
-
-					toBeFollowed := make([]string, 0)
-					// exclude already-followed projects:
-					for _, repoURL := range repoURLs {
-						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
-						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
-						isNOTFollowed := !isFollowed && !isFollowedProto
-						if isNOTFollowed {
-							toBeFollowed = append(toBeFollowed, repoURL)
+					toBeFollowed := repoURLs
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
 						}
+					} else {
+						// Exclude already-followed projects:
+						toBeFollowed = cache.RemoveFollowed(repoURLs)
 					}
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
@@ -402,16 +467,15 @@ func main() {
 
 					etac := eta.New(int64(totalToBeFollowed))
 
-					// follow repos:
+					// Follow repos:
 					for _, repoURL := range toBeFollowed {
 						envelope := follower(repoURL, etac)
 						if envelope != nil {
-							// if the project was NOT already known to lgtm.com,
+							// If the project was NOT already known to lgtm.com,
 							// sleep to avoid triggering too many new builds:
 							isNew := !envelope.IsKnown()
 							if isNew {
 								followedNew++
-								// sleep:
 								time.Sleep(waitDuration)
 							}
 						}
@@ -419,25 +483,29 @@ func main() {
 					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
 					return nil
 				},
-				Flags: []cli.Flag{
-					&cli.StringSliceFlag{
-						Name:  "repos, f",
-						Usage: "Filepath to text file with list of repos.",
-					},
-					&cli.StringFlag{
-						Name:  "lang, l",
-						Usage: "Filter github repos by language.",
-					},
-				},
 			},
 			{
 				Name:  "follow-by-lang",
 				Usage: "Follow projects by language.",
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "limit",
+						Usage: "Max number of projects to get and follow.",
+					},
+					&cli.IntFlag{
+						Name:  "start",
+						Usage: "Start following from project N of the final list (one-indexed).",
+					},
+					&cli.BoolFlag{
+						Name:  "force, y",
+						Usage: "Don't ask for confirmation.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					lang := c.Args().First()
 					if lang == "" {
-						Fataln("must provide a language")
+						Fatalf("Must provide a language")
 					}
 					limit := c.Int("limit")
 					start := c.Int("start")
@@ -449,7 +517,7 @@ func main() {
 
 						repos, err := GithubListAllReposByLanguage(lang, limit)
 						if err != nil {
-							panic(fmt.Errorf("error while getting repo list for language %q: %s", lang, err))
+							Fatalf("error while getting repo list for language %q: %s", lang, err)
 						}
 
 						Debugf("%s has %v repos", lang, len(repos))
@@ -479,25 +547,20 @@ func main() {
 							repoURLs = repoURLs[start-1:]
 						}
 					}
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
-					toBeFollowed := make([]string, 0)
-					// exclude already-followed projects:
-					for _, repoURL := range repoURLs {
-						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
-						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
-						isNOTFollowed := !isFollowed && !isFollowedProto
-						if isNOTFollowed {
-							toBeFollowed = append(toBeFollowed, repoURL)
+					toBeFollowed := repoURLs
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
 						}
+					} else {
+						// Exclude already-followed projects:
+						toBeFollowed = cache.RemoveFollowed(repoURLs)
 					}
-					toBeFollowed = Deduplicate(toBeFollowed)
 					totalToBeFollowed := len(toBeFollowed)
 
 					Infof("Will follow %v projects...", totalToBeFollowed)
@@ -512,16 +575,15 @@ func main() {
 
 					etac := eta.New(int64(totalToBeFollowed))
 
-					// follow repos:
+					// Follow repos:
 					for _, repoURL := range toBeFollowed {
 						envelope := follower(repoURL, etac)
 						if envelope != nil {
-							// if the project was NOT already known to lgtm.com,
+							// If the project was NOT already known to lgtm.com,
 							// sleep to avoid triggering too many new builds:
 							isNew := !envelope.IsKnown()
 							if isNew {
 								followedNew++
-								// sleep:
 								time.Sleep(waitDuration)
 							}
 						}
@@ -529,24 +591,20 @@ func main() {
 					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
 					return nil
 				},
+			},
+			{
+				Name:  "follow-by-meta-search",
+				Usage: "Follow projects by custom search on repositories meta.",
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:  "limit",
 						Usage: "Max number of projects to get and follow.",
-					},
-					&cli.IntFlag{
-						Name:  "start",
-						Usage: "Start following from project N of the final list (one-indexed).",
 					},
 					&cli.BoolFlag{
 						Name:  "force, y",
 						Usage: "Don't ask for confirmation.",
 					},
 				},
-			},
-			{
-				Name:  "follow-by-meta-search",
-				Usage: "Follow projects by custom search on repositories meta.",
 				Action: func(c *cli.Context) error {
 
 					query := c.Args().First()
@@ -566,7 +624,7 @@ func main() {
 						Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
 						repos, err := GithubListReposByMetaSearch(query, limit)
 						if err != nil {
-							panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err))
+							Fatalf("error while getting repo list for search %q: %s", query, err)
 						}
 
 						Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
@@ -584,26 +642,19 @@ func main() {
 						}
 					}
 
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
-
-					toBeFollowed := make([]string, 0)
-					// exclude already-followed projects:
-					for _, repoURL := range repoURLs {
-						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
-						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
-						isNOTFollowed := !isFollowed && !isFollowedProto
-						if isNOTFollowed {
-							toBeFollowed = append(toBeFollowed, repoURL)
+					toBeFollowed := repoURLs
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
 						}
+					} else {
+						// Exclude already-followed projects:
+						toBeFollowed = cache.RemoveFollowed(repoURLs)
 					}
-					toBeFollowed = Deduplicate(toBeFollowed)
-
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
 					if !force {
@@ -617,7 +668,7 @@ func main() {
 
 					etac := eta.New(int64(totalToBeFollowed))
 
-					// follow repos:
+					// Follow repos:
 					for _, repoURL := range toBeFollowed {
 						envelope := follower(repoURL, etac)
 						if envelope != nil {
@@ -626,7 +677,6 @@ func main() {
 							isNew := !envelope.IsKnown()
 							if isNew {
 								followedNew++
-								// sleep:
 								time.Sleep(waitDuration)
 							}
 						}
@@ -634,25 +684,25 @@ func main() {
 					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
 					return nil
 				},
+			},
+			{
+				Name:  "follow-by-code-search",
+				Usage: "Follow projects by custom search on repositories code.",
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:  "limit",
-						Usage: "Max number of projects to get and follow.",
+						Usage: "Max number of code results.",
 					},
 					&cli.BoolFlag{
 						Name:  "force, y",
 						Usage: "Don't ask for confirmation.",
 					},
 				},
-			},
-			{
-				Name:  "follow-by-code-search",
-				Usage: "Follow projects by custom search on repositories code.",
 				Action: func(c *cli.Context) error {
 
 					query := c.Args().First()
 					if query == "" {
-						Fataln("must provide a query string")
+						Fataln("Must provide a query string")
 					}
 					limit := c.Int("limit")
 					force := c.Bool("y")
@@ -662,7 +712,7 @@ func main() {
 						Debugf("Getting list of repos for search: %s ...", ShakespeareBG(query))
 						repos, err := GithubListReposByCodeSearch(query, limit)
 						if err != nil {
-							panic(fmt.Errorf("error while getting repo list for search %q: %s", query, err))
+							Fatalf("error while getting repo list for search %q: %s", query, err)
 						}
 
 						Debugf("Search %s has returned %v repos", ShakespeareBG(query), len(repos))
@@ -680,27 +730,19 @@ func main() {
 						}
 					}
 
-					took := NewTimer()
-					Infof("Getting list of followed projects...")
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
-
-					toBeFollowed := make([]string, 0)
-					// exclude already-followed projects:
-					for _, repoURL := range repoURLs {
-						_, isFollowed := isAlreadyFollowedProject(projects, repoURL)
-						_, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
-						isNOTFollowed := !isFollowed && !isFollowedProto
-						if isNOTFollowed {
-							toBeFollowed = append(toBeFollowed, repoURL)
+					toBeFollowed := repoURLs
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
 						}
+					} else {
+						// Exclude already-followed projects:
+						toBeFollowed = cache.RemoveFollowed(repoURLs)
 					}
-
-					toBeFollowed = Deduplicate(toBeFollowed)
-
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
 					if !force {
@@ -714,37 +756,53 @@ func main() {
 
 					etac := eta.New(int64(totalToBeFollowed))
 
-					// follow repos:
+					// Follow repos:
 					for _, repoURL := range toBeFollowed {
 						envelope := follower(repoURL, etac)
 						if envelope != nil {
-							// if the project was NOT already known to lgtm.com,
+							// If the project was NOT already known to lgtm.com,
 							// sleep to avoid triggering too many new builds:
 							isNew := !envelope.IsKnown()
 							if isNew {
 								followedNew++
-								// sleep:
 								time.Sleep(waitDuration)
 							}
 						}
 					}
+
 					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
 					return nil
-				},
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "limit",
-						Usage: "Max number of code results.",
-					},
-					&cli.BoolFlag{
-						Name:  "force, y",
-						Usage: "Don't ask for confirmation.",
-					},
 				},
 			},
 			{
 				Name:  "query",
 				Usage: "Run a query on one or multiple projects.",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "exclude, e",
+						Usage: "Exclude project; example: github/api",
+					},
+					&cli.StringSliceFlag{
+						Name:  "list-key, lk",
+						Usage: "Project list key on which to run the query (can specify multiple).",
+					},
+					&cli.StringFlag{
+						Name:  "lang, l",
+						Usage: "Language of the query project.",
+					},
+					&cli.StringFlag{
+						Name:  "query, q",
+						Usage: "Filepath to .ql query file.",
+					},
+					&cli.StringSliceFlag{
+						Name:  "repos, f",
+						Usage: "Filepath to text file with list of repos.",
+					},
+					&cli.BoolFlag{
+						Name:  "all, a",
+						Usage: "Query all followed projects.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					lang := c.String("lang")
@@ -759,7 +817,7 @@ func main() {
 
 					fileExt := filepath.Ext(queryFilepath)
 					if fileExt != ".ql" {
-						panic(Sf("file is not a .ql: %s", queryFilepath))
+						Fatalf("file is not a .ql: %s", queryFilepath)
 					}
 
 					queryBytes, err := ioutil.ReadFile(queryFilepath)
@@ -772,15 +830,7 @@ func main() {
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
-						for _, path := range repoListFilepaths {
-							err := ReadConfigLinesAsString(path, func(line string) bool {
-								repoURLsRaw = append(repoURLsRaw, line)
-								return true
-							})
-							if err != nil {
-								return err
-							}
-						}
+						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
 
@@ -818,54 +868,95 @@ func main() {
 
 					projectkeys := make([]string, 0)
 					if len(repoURLs) > 0 {
-						Infof("Getting list of followed projects...")
-						projects, protoProjects, err := client.ListFollowedProjects()
-						if err != nil {
-							panic(err)
-						}
-
-						IsProto := func(projectURL string) (*ProtoProject, bool) {
-							for _, pr := range protoProjects {
-								found := projectURL == pr.CloneURL
-								if found {
-									return pr, true
-								}
+						cache, err := client.GetFollowedCache()
+						hasCache := err == nil && cache != nil
+						if !hasCache {
+							if ignoreFollowedErrors {
+								Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+							} else {
+								panic(err)
 							}
-							return nil, false
 						}
 
 						excluded := c.StringSlice("exclude")
 
-						// if no repos specified, and flag --all is true, then query all:
-						if c.Bool("all") {
-							Infof("Gonna query all %v projects", len(projects))
-							for _, pr := range projects {
-								repoURLs = append(repoURLs, pr.ExternalURL.URL)
+						if hasCache {
+							// With cache:
+
+							// If no repos specified, and flag --all is true, then query all:
+							if c.Bool("all") {
+								Infof("Gonna query all %v projects", cache.NumProjects())
+								for _, pr := range cache.Projects() {
+									repoURLs = append(repoURLs, pr.ExternalURL.URL)
+								}
 							}
-						}
-						repoURLs = Deduplicate(repoURLs)
+							repoURLs = Deduplicate(repoURLs)
 
-						for _, repoURL := range repoURLs {
+							for _, repoURL := range repoURLs {
+								isProto := cache.IsProto(repoURL)
+								if isProto {
+									Warnf("%s is proto; skipping", trimGithubPrefix(repoURL))
+									continue
+								}
 
-							_, isProto := IsProto(repoURL)
-							if isProto {
-								Warnf("%s is proto; skipping", trimGithubPrefix(repoURL))
-								continue
-							}
-
-							pr, already := isAlreadyFollowedProject(projects, repoURL)
-							if !already {
-								Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
-							} else {
-								isSupportedLanguageForProject := pr.SupportsLanguage(lang)
-								if !isSupportedLanguageForProject {
-									Warnf("%s does not have language %s; skipping", trimGithubPrefix(repoURL), lang)
+								pr := cache.GetProject(repoURL)
+								if pr == nil {
+									Warnf("%s is not followed; skipping", trimGithubPrefix(repoURL))
 								} else {
-									isExcluded := SliceContains(excluded, pr.DisplayName)
-									if isExcluded {
-										Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
+									isSupportedLanguageForProject := pr.SupportsLanguage(lang)
+									if !isSupportedLanguageForProject {
+										Warnf("%s does not have language %s; skipping", trimGithubPrefix(repoURL), lang)
 									} else {
-										projectkeys = append(projectkeys, pr.Key)
+										isExcluded := SliceContains(excluded, pr.DisplayName)
+										if isExcluded {
+											Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
+										} else {
+											projectkeys = append(projectkeys, pr.Key)
+										}
+									}
+								}
+							}
+						} else {
+							// If no cache available:
+							for _, repoURL := range repoURLs {
+								if isGlob(repoURL) {
+									// Skip because not a complete URL.
+									Infof("Skipping %s", repoURL)
+									continue
+								}
+								parsed, err := ParseGitURL(repoURL, true)
+								if err != nil {
+									panic(err)
+								}
+								isWholeUser := parsed.Repo == ""
+								if isWholeUser {
+									// Skip because not a complete URL.
+									Infof("Skipping %s", repoURL)
+									continue
+								}
+
+								pr, err := client.GetProjectBySlug(parsed.Slug())
+								if err != nil {
+									if isStatusResponseError(err) && err.(*StatusResponse).IsNotFound() {
+										Warnf(
+											"Project %s is not a built project.",
+											trimGithubPrefix(repoURL),
+										)
+									} else {
+										// General error
+										panic(err)
+									}
+								} else {
+									isSupportedLanguageForProject := pr.SupportsLanguage(lang)
+									if !isSupportedLanguageForProject {
+										Warnf("%s does not have language %s; skipping", trimGithubPrefix(repoURL), lang)
+									} else {
+										isExcluded := SliceContains(excluded, pr.DisplayName)
+										if isExcluded {
+											Warnf("%s is excluded; skipping", trimGithubPrefix(repoURL))
+										} else {
+											projectkeys = append(projectkeys, pr.Key)
+										}
 									}
 								}
 							}
@@ -909,45 +1000,29 @@ func main() {
 					fmt.Println(resp.GetResultLink())
 					return nil
 				},
-				Flags: []cli.Flag{
-					&cli.StringSliceFlag{
-						Name:  "exclude, e",
-						Usage: "Exclude project; example: github/api",
-					},
-					&cli.StringSliceFlag{
-						Name:  "list-key, lk",
-						Usage: "Project list key on which to run the query (can specify multiple).",
-					},
-					&cli.StringFlag{
-						Name:  "lang, l",
-						Usage: "Language of the query project.",
-					},
-					&cli.StringFlag{
-						Name:  "query, q",
-						Usage: "Filepath to .ql query file.",
-					},
-					&cli.StringSliceFlag{
-						Name:  "repos, f",
-						Usage: "Filepath to text file with list of repos.",
-					},
-					&cli.BoolFlag{
-						Name:  "all, a",
-						Usage: "Query all followed projects.",
-					},
-				},
 			},
 			{
 				Name:  "rebuild-proto",
 				Usage: "(Re)build followed proto-projects.",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "exclude, e",
+						Usage: "Exclude project(s) by glob; example: github/api",
+					},
+					&cli.BoolFlag{
+						Name:  "force, F",
+						Usage: "Rebuild all proto-projects without asking confirmation for each.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					took := NewTimer()
-					Infof("Getting list of followed projects...")
+					Infof("Getting list of followed proto-projects...")
 					_, protoProjects, err := client.ListFollowedProjects()
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v proto-projects are followed; took %s", len(protoProjects), took())
+					Infof("Currently you're following %v proto-projects; took %s", len(protoProjects), took())
 
 					force := c.Bool("F")
 
@@ -1008,20 +1083,28 @@ func main() {
 
 					return nil
 				},
+			},
+			{
+				Name:  "rebuild",
+				Usage: "Rebuild followed projects.",
 				Flags: []cli.Flag{
 					&cli.StringSliceFlag{
 						Name:  "exclude, e",
 						Usage: "Exclude project(s) by glob; example: github/api",
 					},
+					&cli.StringFlag{
+						Name:  "lang, l",
+						Usage: "Language of the query project.",
+					},
 					&cli.BoolFlag{
 						Name:  "force, F",
-						Usage: "Rebuild all proto-projects without asking confirmation for each.",
+						Usage: "Rebuild without asking for confirmation.",
+					},
+					&cli.BoolFlag{
+						Name:  "all",
+						Usage: "Rebuild all projects for specific language.",
 					},
 				},
-			},
-			{
-				Name:  "rebuild",
-				Usage: "Rebuild followed projects.",
 				Action: func(c *cli.Context) error {
 
 					lang := c.String("lang")
@@ -1035,7 +1118,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+					Infof("Currently you're following %v projects (and %v proto-projects); took %s", len(projects), len(protoProjects), took())
 
 					var projectsThatSupportTheLanguage int
 					for _, pr := range projects {
@@ -1071,7 +1154,7 @@ func main() {
 
 						isSupportedLanguageForProject := pr.SupportsLanguage(lang)
 
-						// rebuild if a project does not support the specified language.
+						// Rebuild if a project does not support the specified language.
 						if !isSupportedLanguageForProject {
 							Infof(
 								"%s does NOT have language %s; starting new build attempt ...",
@@ -1132,28 +1215,11 @@ func main() {
 
 					return nil
 				},
-				Flags: []cli.Flag{
-					&cli.StringSliceFlag{
-						Name:  "exclude, e",
-						Usage: "Exclude project(s) by glob; example: github/api",
-					},
-					&cli.StringFlag{
-						Name:  "lang, l",
-						Usage: "Language of the query project.",
-					},
-					&cli.BoolFlag{
-						Name:  "force, F",
-						Usage: "Rebuild without asking for confirmation.",
-					},
-					&cli.BoolFlag{
-						Name:  "all",
-						Usage: "Rebuild all projects for specific language.",
-					},
-				},
 			},
 			{
 				Name:  "followed",
 				Usage: "List all followed projects.",
+				Flags: []cli.Flag{},
 				Action: func(c *cli.Context) error {
 
 					took := NewTimer()
@@ -1178,11 +1244,11 @@ func main() {
 
 					return nil
 				},
-				Flags: []cli.Flag{},
 			},
 			{
 				Name:  "lists",
 				Usage: "List all lists of projects.",
+				Flags: []cli.Flag{},
 				Action: func(c *cli.Context) error {
 
 					took := NewTimer()
@@ -1196,6 +1262,7 @@ func main() {
 					sort.Slice(lists, func(i, j int) bool {
 						return lists[i].Name < lists[j].Name
 					})
+					Errorln(Bold("NAME | KEY"))
 					for _, list := range lists {
 						Sfln(
 							"%s | %s",
@@ -1206,11 +1273,16 @@ func main() {
 
 					return nil
 				},
-				Flags: []cli.Flag{},
 			},
 			{
 				Name:  "create-list",
 				Usage: "Create a new list.",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "name",
+						Usage: "Name of the list to be created.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					name := c.Args().First()
@@ -1232,16 +1304,16 @@ func main() {
 
 					return nil
 				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "name",
-						Usage: "Name of the list to be created.",
-					},
-				},
 			},
 			{
 				Name:  "delete-list",
 				Usage: "Delete a list.",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "name",
+						Usage: "Name of the list to be deleted.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					name := c.Args().First()
@@ -1263,16 +1335,11 @@ func main() {
 
 					return nil
 				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "name",
-						Usage: "Name of the list to be created.",
-					},
-				},
 			},
 			{
 				Name:  "list",
 				Usage: "List projects inside a list by its name.",
+				Flags: []cli.Flag{},
 				Action: func(c *cli.Context) error {
 
 					name := c.Args().First()
@@ -1293,13 +1360,7 @@ func main() {
 					)
 
 					projectCount := len(resp.ProjectKeys)
-					chunkSize := 100
-					partsNumber := projectCount / chunkSize
-					if projectCount < chunkSize {
-						partsNumber = 1
-					} else {
-						partsNumber++
-					}
+					partsNumber := calcChunkCount(projectCount, 100)
 
 					chunks := SplitStringSlice(partsNumber, resp.ProjectKeys)
 
@@ -1331,26 +1392,27 @@ func main() {
 
 					return nil
 				},
-				Flags: []cli.Flag{},
 			},
 			{
 				Name:  "add-to-list",
 				Usage: "Add followed projects to a list.",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "name",
+						Usage: "Name of the list to which add the projects (can use multiple times).",
+					},
+					&cli.StringSliceFlag{
+						Name:  "repos, f",
+						Usage: "Filepath to text file with list of repos.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
 						repoListFilepaths := c.StringSlice("f")
-						for _, path := range repoListFilepaths {
-							err := ReadConfigLinesAsString(path, func(line string) bool {
-								repoURLsRaw = append(repoURLsRaw, line)
-								return true
-							})
-							if err != nil {
-								return err
-							}
-						}
+						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
 
@@ -1380,69 +1442,154 @@ func main() {
 						}
 					}
 
-					///
-					Infof("Getting list of followed projects...")
-					took := NewTimer()
-					projects, protoProjects, err := client.ListFollowedProjects()
-					if err != nil {
-						panic(err)
-					}
-					Infof("took %s", took())
+					alreadyFollowedProjectKeys := make(map[string][]string, 0)
 
-					name := c.String("name")
-					took = NewTimer()
-					Infof("Getting projects of %q list...", name)
-					resp, err := client.ListProjectsInSelection(name)
+					listNames := c.StringSlice("name")
+					lists, err := client.ListProjectSelections()
 					if err != nil {
 						panic(err)
 					}
-					Infof("took %s", took())
+
+					// Check if all lists exist;
+					// if a list does NOT exist, ask if want it to be created:
+					for _, wantedListName := range listNames {
+						exists := lists.ByName(wantedListName) != nil
+						if !exists {
+							Warnf("The %q list does not exist.", wantedListName)
+							yes, err := CLIAskYesNo(Sf("Do you want to create %q list?", wantedListName))
+							if err != nil {
+								return err
+							}
+							if yes {
+								// Create the new list:
+								took := NewTimer()
+								err := client.CreateProjectSelection(wantedListName)
+								if err != nil {
+									panic(err)
+								}
+								Infof(
+									"Created new list %q; took %s",
+									wantedListName,
+									took(),
+								)
+							}
+						} else {
+							// Get list of projects inside the list, and cache them:
+							took := NewTimer()
+							Infof("Getting projects of %q list...", wantedListName)
+							resp, err := client.ListProjectsInSelection(wantedListName)
+							if err != nil {
+								panic(err)
+							}
+							Infof("took %s", took())
+							alreadyFollowedProjectKeys[wantedListName] = resp.ProjectKeys
+						}
+					}
+					{ // Refresh list of selections:
+						lists, err = client.ListProjectSelections()
+						if err != nil {
+							panic(err)
+						}
+					}
+
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
+						}
+					}
 
 					projectKeys := make([]string, 0)
 					for _, repoURL := range repoURLs {
-						project, isFollowed := isAlreadyFollowedProject(projects, repoURL)
-						protoProject, isFollowedProto := isAlreadyFollowedProto(protoProjects, repoURL)
-						if !isFollowed && !isFollowedProto {
-							Warnf(
-								"project %s is not followed",
-								trimGithubPrefix(repoURL),
-							)
+						// Only built projects can be added to a list.
+						// try to find out whether it is a built project or not:
+						var isABuiltProject bool
+						if hasCache {
+							// If succeeded to get the list of followed projects,
+							// then check whether the project is present there.
+							// NOTE: Even if it is not a followed project, it still could be a built project.
+							pr := cache.GetProject(repoURL)
+							if pr != nil {
+								isABuiltProject = true
+								projectKeys = append(projectKeys, pr.Key)
+							}
 						}
-
-						if isFollowed && project != nil && !SliceContains(resp.ProjectKeys, project.Key) {
-							projectKeys = append(projectKeys, project.Key)
-						}
-						if isFollowedProto && protoProject != nil && !SliceContains(resp.ProjectKeys, protoProject.Key) {
-							// TODO: fix
-							//projectKeys = append(projectKeys, protoProject.Key)
+						if !isABuiltProject {
+							parsed, err := ParseGitURL(repoURL, true)
+							if err != nil {
+								panic(err)
+							}
+							pr, err := client.GetProjectBySlug(parsed.Slug())
+							if err != nil {
+								if isStatusResponseError(err) && err.(*StatusResponse).IsNotFound() {
+									Warnf(
+										"Project %s is not a built project; cannot be added to list.",
+										trimGithubPrefix(repoURL),
+									)
+								} else {
+									// General error
+									panic(err)
+								}
+							} else {
+								isABuiltProject = true
+								projectKeys = append(projectKeys, pr.Key)
+							}
 						}
 					}
 
-					Infof(
-						"Adding %v projects to list %q...",
-						len(projectKeys),
-						name,
-					)
-					err = client.AddProjectToSelection(resp.Identity.Key, projectKeys...)
-					if err != nil {
-						panic(err)
+					{
+						for _, wantedListName := range listNames {
+							// Add to one list at a time:
+							list := lists.ByName(wantedListName)
+							if list == nil {
+								continue
+							}
+							addedCount := 0
+
+							notFollowedByThisList := Filter(projectKeys,
+								func(i int, prKey string) bool {
+									notFollowed := !SliceContains(alreadyFollowedProjectKeys[wantedListName], prKey)
+									return notFollowed
+								}).([]string)
+
+							partsNumber := calcChunkCount(len(notFollowedByThisList), 100)
+							chunks := SplitStringSlice(partsNumber, notFollowedByThisList)
+							for chunkIndex, chunk := range chunks {
+								Infof(
+									"Adding projects to %q list; chunk %v/%v...",
+									list.Name,
+									chunkIndex+1,
+									len(chunks),
+								)
+								addedCount += len(chunk)
+								err = client.AddProjectToSelection(list.Key, chunk...)
+								if err != nil {
+									panic(err)
+								}
+							}
+							Infof("Added %v new projects to %q list.", addedCount, wantedListName)
+						}
 					}
+
 					return nil
-				},
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "name",
-						Usage: "Name of the list to which the projects will be added to.",
-					},
-					&cli.StringSliceFlag{
-						Name:  "repos, f",
-						Usage: "Filepath to text file with list of repos.",
-					},
 				},
 			},
 			{
 				Name:  "x-list-query-results",
 				Usage: "[x] List projects of a query run (json).",
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "min-alerts",
+						Usage: "Min number of alerts; will sort by alert count.",
+					},
+					&cli.IntFlag{
+						Name:  "min-results",
+						Usage: "Min number of results; will sort by result count.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					queryID := c.Args().First()
@@ -1512,13 +1659,7 @@ func main() {
 					)
 
 					projectCount := len(queryResults)
-					chunkSize := 100
-					partsNumber := projectCount / chunkSize
-					if projectCount < chunkSize {
-						partsNumber = 1
-					} else {
-						partsNumber++
-					}
+					partsNumber := calcChunkCount(projectCount, 100)
 
 					projectKeys := MapSlice(queryResults, func(i int) string {
 						return queryResults[i].ProjectKey
@@ -1571,16 +1712,6 @@ func main() {
 					Ln(string(js))
 
 					return nil
-				},
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "min-alerts",
-						Usage: "Min number of alerts; will sort by alert count.",
-					},
-					&cli.IntFlag{
-						Name:  "min-results",
-						Usage: "Min number of results; will sort by result count.",
-					},
 				},
 			},
 		},
@@ -1980,20 +2111,6 @@ func saveTargetListToTempFile(cmdName string, targets []string) {
 	}
 }
 
-// formatNotOKStatusCodeError is used to format an error when the status code is not 200.
-func formatNotOKStatusCodeError(resp *request.Response) error {
-	body, err := resp.Text()
-	if err != nil {
-		panic(err)
-	}
-	return fmt.Errorf(
-		"Status code: %v\nHeader:\n%s\nBody:\n\n %s",
-		resp.StatusCode,
-		Sq(resp.Header),
-		body,
-	)
-}
-
 func isGlob(s string) bool {
 	return strings.Contains(s, "*")
 }
@@ -2005,6 +2122,183 @@ func getGlobsThatMatchEverything(patterns []string) []string {
 	for _, pattern := range patterns {
 		if strings.HasSuffix(pattern, "/*/*") || strings.HasSuffix(pattern, "github.com/*") {
 			res = append(res, pattern)
+		}
+	}
+	return res
+}
+func isAlreadyFollowedProject(projects []*Project, projectURL string) (*Project, bool) {
+	for _, pr := range projects {
+		alreadyFollowed := ToLower(projectURL) == ToLower(pr.ExternalURL.URL)
+		if alreadyFollowed {
+			return pr, true
+		}
+	}
+	return nil, false
+}
+
+func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*ProtoProject, bool) {
+	for _, pr := range protoProjects {
+		alreadyFollowed := isProtoMatch(pr.CloneURL, projectURL)
+		if alreadyFollowed {
+			return pr, true
+		}
+	}
+	return nil, false
+}
+
+func isProtoMatch(cloneURL string, projectURL string) bool {
+	withDotGitSuffix := ""
+	if !strings.HasSuffix(projectURL, ".git") {
+		withDotGitSuffix = projectURL + ".git"
+	} else {
+		withDotGitSuffix = projectURL
+	}
+	alreadyFollowed := (ToLower(projectURL) == ToLower(cloneURL)) || (ToLower(withDotGitSuffix) == ToLower(cloneURL))
+	return alreadyFollowed
+}
+
+type FollowedProjectCache struct {
+	mu       *sync.RWMutex
+	projects []*Project
+	proto    []*ProtoProject
+	client   *Client
+}
+
+//
+func (fpc *FollowedProjectCache) IsFollowed(repoURL string) bool {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	_, isFollowed := isAlreadyFollowedProject(fpc.projects, repoURL)
+	_, isFollowedProto := isAlreadyFollowedProto(fpc.proto, repoURL)
+	return isFollowed || isFollowedProto
+}
+
+// Has returns true if the project/proto-project is followed.
+func (fpc *FollowedProjectCache) HasAny(repoURL string) bool {
+	return fpc.IsFollowed(repoURL)
+}
+
+// Get returns a Project if it is present in the followed projects cache.
+func (fpc *FollowedProjectCache) GetProject(repoURL string) *Project {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	pr, isFollowed := isAlreadyFollowedProject(fpc.projects, repoURL)
+	if isFollowed && pr != nil {
+		return pr
+	}
+	return nil
+}
+
+// GetProto returns a ProtoProject if it is present in the followed proto-projects cache.
+func (fpc *FollowedProjectCache) GetProto(repoURL string) *ProtoProject {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	pr, isFollowedProto := isAlreadyFollowedProto(fpc.proto, repoURL)
+	if isFollowedProto && pr != nil {
+		return pr
+	}
+	return nil
+}
+
+//
+func (fpc *FollowedProjectCache) IsProto(repoURL string) bool {
+	pr := fpc.GetProto(repoURL)
+	return pr != nil
+}
+
+//
+func (fpc *FollowedProjectCache) Refresh() error {
+	took := NewTimer()
+	Infof("Getting list of followed projects...")
+	projects, protoProjects, err := fpc.client.ListFollowedProjects()
+	if err != nil {
+		return fmt.Errorf("error while getting list of followed projects: %s", err)
+	}
+	Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+
+	fpc.mu.Lock()
+	defer fpc.mu.Unlock()
+	fpc.projects = projects
+	fpc.proto = protoProjects
+
+	return nil
+}
+func (fpc *FollowedProjectCache) RemoveFollowed(candidates []string) []string {
+	toBeFollowed := Filter(candidates, func(i int, repoURL string) bool {
+		isNOTFollowed := !fpc.HasAny(repoURL)
+		return isNOTFollowed
+	}).([]string)
+	return Deduplicate(toBeFollowed)
+}
+func (fpc *FollowedProjectCache) NumProjects() int {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	return len(fpc.projects)
+}
+func (fpc *FollowedProjectCache) NumProto() int {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	return len(fpc.proto)
+}
+func (fpc *FollowedProjectCache) Projects() []*Project {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	return Filter(fpc.projects, func(i int) bool {
+		return true
+	}).([]*Project)
+}
+func (fpc *FollowedProjectCache) ProtoProjects() []*ProtoProject {
+	fpc.mu.RLock()
+	defer fpc.mu.RUnlock()
+
+	return Filter(fpc.proto, func(i int) bool {
+		return true
+	}).([]*ProtoProject)
+}
+func (cl *Client) GetFollowedCache() (*FollowedProjectCache, error) {
+	fpc := NewFollowedProjectCache(cl)
+	err := fpc.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	return fpc, nil
+}
+
+func NewFollowedProjectCache(cl *Client) *FollowedProjectCache {
+	return &FollowedProjectCache{
+		client: cl,
+		mu:     &sync.RWMutex{},
+	}
+}
+
+func calcChunkCount(total int, chunkSize int) int {
+	partsNumber := total / chunkSize
+	if total < chunkSize {
+		partsNumber = 1
+	} else {
+		partsNumber++
+	}
+	return partsNumber
+}
+
+func trimDotGit(s string) string {
+	return strings.TrimSuffix(s, ".git")
+}
+func mustLoadTargetsFromFilepaths(paths ...string) []string {
+	var res []string
+	for _, path := range paths {
+		err := ReadConfigLinesAsString(path, func(line string) bool {
+			res = append(res, line)
+			return true
+		})
+		if err != nil {
+			panic(err)
 		}
 	}
 	return res
