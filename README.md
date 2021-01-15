@@ -280,7 +280,7 @@ This of course won't work for commands like `lgtm followed` or `lgtm unfollow-al
 
 ## Legal
 
-The author of this script assumes no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
+The author and contributors of this script assume no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
 
 ## Credits
 
