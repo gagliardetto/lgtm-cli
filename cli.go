@@ -807,7 +807,7 @@ func main() {
 						Usage: "Query all followed projects.",
 					},
 					&cli.BoolFlag{
-						Name:  "all-lists, a",
+						Name:  "all-lists, al",
 						Usage: "Query all created lists.",
 					},
 				},
