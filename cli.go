@@ -2113,26 +2113,32 @@ func trimGithubPrefix(s string) string {
 	return strings.TrimPrefix(s, "https://github.com/")
 }
 
-func saveTargetListToTempFile(scanName string, cmdName string, targets []string) {
-	if scanName == "" {
-		scanName = Sf(
-			"lgtml-cli-%s-%s.*.txt",
+func saveTargetListToTempFile(outputFileName string, cmdName string, targets []string) {
+	var outputFile *os.File
+	var err error
+
+	if outputFileName == "" {
+		scanName := Sf(
+			"lgtml-cli-%s-%s",
 			cmdName,
 			time.Now().Format(FilenameTimeFormat),
 		)
+		outputFile, err = ioutil.TempFile("", scanName+".*.txt")
+		outputFileName = outputFile.Name()
+	} else {
+		outputFile, err = os.Create(outputFileName)
 	}
 
-	tmpfile, err := ioutil.TempFile("", scanName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	writer := bufio.NewWriter(tmpfile)
+	writer := bufio.NewWriter(outputFile)
 
 	for _, target := range targets {
 		_, err := writer.WriteString(target + "\n")
 		if err != nil {
-			tmpfile.Close()
+			outputFile.Close()
 			log.Fatal(err)
 		}
 	}
@@ -2141,9 +2147,9 @@ func saveTargetListToTempFile(scanName string, cmdName string, targets []string)
 		log.Fatal(err)
 	}
 
-	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to temp file %s"), tmpfile.Name()))
+	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to temp file %s"), outputFileName))
 
-	if err := tmpfile.Close(); err != nil {
+	if err := outputFile.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
