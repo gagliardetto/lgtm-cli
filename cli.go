@@ -997,6 +997,7 @@ func main() {
 						}
 
 						if allListsFlag {
+							// Add all created project lists
 							for _, list := range lists {
 								projectListKeys = append(projectListKeys, list.Key)
 							}
