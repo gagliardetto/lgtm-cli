@@ -803,8 +803,12 @@ func main() {
 						Usage: "Filepath to text file with list of repos.",
 					},
 					&cli.BoolFlag{
-						Name:  "all, a",
+						Name:  "all-projects, ap",
 						Usage: "Query all followed projects.",
+					},
+					&cli.BoolFlag{
+						Name:  "all-lists, a",
+						Usage: "Query all created lists.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -822,6 +826,13 @@ func main() {
 					fileExt := filepath.Ext(queryFilepath)
 					if fileExt != ".ql" {
 						Fatalf("file is not a .ql: %s", queryFilepath)
+					}
+
+					projectListKeys := c.StringSlice("list-key")
+					projectListNames := c.StringSlice("list")
+					allListsFlag := c.Bool("all-lists")
+					if len(projectListKeys)+len(projectListNames) > 0 && allListsFlag {
+						panic("Cannot set --list-key/--list along with --all-lists")
 					}
 
 					queryBytes, err := ioutil.ReadFile(queryFilepath)
@@ -888,7 +899,7 @@ func main() {
 							// With cache:
 
 							// If no repos specified, and flag --all is true, then query all:
-							if c.Bool("all") {
+							if c.Bool("all-projects") {
 								Infof("Gonna query all %v projects", cache.NumProjects())
 								for _, pr := range cache.Projects() {
 									repoURLs = append(repoURLs, pr.ExternalURL.URL)
@@ -967,21 +978,26 @@ func main() {
 						}
 					}
 
-					projectListKeys := c.StringSlice("list-key")
-					projectListNames := c.StringSlice("list")
-
-					if len(projectListNames) > 0 {
-						// Add project lists by name:
+					if len(projectListNames) > 0 || allListsFlag {
 						lists, err := client.ListProjectSelections()
 						if err != nil {
 							panic(err)
 						}
 
-						for _, name := range projectListNames {
-							list := lists.ByName(name)
-							if list == nil {
-								Warnf("List %q not found; skipping", name)
-							} else {
+						if len(projectListNames) > 0 {
+							// Add project lists by name:
+							for _, name := range projectListNames {
+								list := lists.ByName(name)
+								if list == nil {
+									Warnf("List %q not found; skipping", name)
+								} else {
+									projectListKeys = append(projectListKeys, list.Key)
+								}
+							}
+						}
+
+						if allListsFlag {
+							for _, list := range lists {
 								projectListKeys = append(projectListKeys, list.Key)
 							}
 						}
