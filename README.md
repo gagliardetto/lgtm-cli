@@ -240,6 +240,24 @@ lgtm query \
 
 ---
 
+## Experimental commands
+
+### Get results from a query ID
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX
+```
+
+#### Examples
+
+##### Get projects name
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX | 
+jq '.[].Project.displayName' | tr -d '"'
+```
+
+---
+
 ## Known errors
 
 ### Cannot get list of followed projects
