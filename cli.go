@@ -612,6 +612,10 @@ func main() {
 						Name:  "force, y",
 						Usage: "Don't ask for confirmation.",
 					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "File name to write repositories to.",
+					},
 				},
 				Action: func(c *cli.Context) error {
 
