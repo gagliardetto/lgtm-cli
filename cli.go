@@ -388,6 +388,10 @@ func main() {
 						Name:  "lang, l",
 						Usage: "Filter github repos by language.",
 					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
+					},
 				},
 				Action: func(c *cli.Context) error {
 
@@ -461,7 +465,7 @@ func main() {
 					Infof("Will follow %v projects...", totalToBeFollowed)
 
 					// Write toBeFollowed to temp file:
-					saveTargetListToTempFile("follow", toBeFollowed)
+					saveTargetListToTempFile(c.String("output"), "follow", toBeFollowed)
 
 					followedNew := 0
 
@@ -499,6 +503,10 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "force, y",
 						Usage: "Don't ask for confirmation.",
+					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -569,7 +577,7 @@ func main() {
 					}
 
 					// Write toBeFollowed to temp file:
-					saveTargetListToTempFile("follow-by-lang", toBeFollowed)
+					saveTargetListToTempFile(c.String("output"), "follow-by-lang", toBeFollowed)
 
 					followedNew := 0
 
@@ -603,6 +611,10 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "force, y",
 						Usage: "Don't ask for confirmation.",
+					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -662,7 +674,7 @@ func main() {
 					}
 
 					// Write toBeFollowed to temp file:
-					saveTargetListToTempFile("follow-by-meta-search", toBeFollowed)
+					saveTargetListToTempFile(c.String("output"), "follow-by-meta-search", toBeFollowed)
 
 					followedNew := 0
 
@@ -696,6 +708,10 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "force, y",
 						Usage: "Don't ask for confirmation.",
+					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -750,7 +766,7 @@ func main() {
 					}
 
 					// Write toBeFollowed to temp file:
-					saveTargetListToTempFile("follow-by-code-search", toBeFollowed)
+					saveTargetListToTempFile(c.String("output"), "follow-by-code-search", toBeFollowed)
 
 					followedNew := 0
 
@@ -2101,23 +2117,32 @@ func trimGithubPrefix(s string) string {
 	return strings.TrimPrefix(s, "https://github.com/")
 }
 
-func saveTargetListToTempFile(cmdName string, targets []string) {
-	scanName := Sf(
-		"lgtml-cli-%s-%s",
-		cmdName,
-		time.Now().Format(FilenameTimeFormat),
-	)
-	tmpfile, err := ioutil.TempFile("", scanName+".*.txt")
+func saveTargetListToTempFile(outputFileName string, cmdName string, targets []string) {
+	var outputFile *os.File
+	var err error
+
+	if outputFileName == "" {
+		scanName := Sf(
+			"lgtml-cli-%s-%s",
+			cmdName,
+			time.Now().Format(FilenameTimeFormat),
+		)
+		outputFile, err = ioutil.TempFile("", scanName+".*.txt")
+		outputFileName = outputFile.Name()
+	} else {
+		outputFile, err = os.Create(outputFileName)
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	writer := bufio.NewWriter(tmpfile)
+	writer := bufio.NewWriter(outputFile)
 
 	for _, target := range targets {
 		_, err := writer.WriteString(target + "\n")
 		if err != nil {
-			tmpfile.Close()
+			outputFile.Close()
 			log.Fatal(err)
 		}
 	}
@@ -2126,9 +2151,9 @@ func saveTargetListToTempFile(cmdName string, targets []string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to temp file %s"), tmpfile.Name()))
+	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to %s"), outputFileName))
 
-	if err := tmpfile.Close(); err != nil {
+	if err := outputFile.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
