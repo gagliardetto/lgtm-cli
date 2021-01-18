@@ -252,8 +252,7 @@ lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX
 
 ##### Get projects name
 ```bash
-lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX | 
-jq '.[].Project.displayName' | tr -d '"'
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX | jq -r '.[].Project.displayName'
 ```
 
 ---
@@ -281,6 +280,8 @@ This of course won't work for commands like `lgtm followed` or `lgtm unfollow-al
 ## Legal
 
 The author and contributors of this script assume no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
+
+LGTM/LGTM.com is a trademark of Semmle / GitHub. The use of the LGTM trademark and name on this page shall not imply any affiliation with or endorsement by Semmle / GitHub.
 
 ## Credits
 
