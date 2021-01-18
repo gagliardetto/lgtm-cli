@@ -240,6 +240,35 @@ lgtm query \
 
 ---
 
+## Experimental commands
+
+### Get results from a query ID
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX
+```
+
+#### Examples
+
+##### Get projects name
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX | jq -r '.[].Project.displayName'
+```
+
+##### List project URLs of projects that have at least one result in the query run
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX --min-results=1 |  jq -r ".[].Project.externalURL.url"
+```
+
+##### List project URLs of projects that have at least one alert in the query run
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX --min-alerts=1 |  jq -r ".[].Project.externalURL.url"
+```
+
+---
+
 ## Known errors
 
 ### Cannot get list of followed projects
@@ -262,7 +291,9 @@ This of course won't work for commands like `lgtm followed` or `lgtm unfollow-al
 
 ## Legal
 
-The author of this script assumes no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
+The author and contributors of this script assume no liability for your use of this project, including, but not limited legal repercussions or being banned from LGTM.com. Please consult the LGTM.com terms of service for more information.
+
+LGTM/LGTM.com is a trademark of Semmle / GitHub. The use of the LGTM trademark and name on this page shall not imply any affiliation with or endorsement by Semmle / GitHub.
 
 ## Credits
 
