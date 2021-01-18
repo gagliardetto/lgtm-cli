@@ -255,6 +255,18 @@ lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX
 lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX | jq -r '.[].Project.displayName'
 ```
 
+##### List project URLs of projects that have at least one result in the query run
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX --min-results=1 |  jq -r ".[].Project.externalURL.url"
+```
+
+##### List project URLs of projects that have at least one alert in the query run
+
+```bash
+lgtm x-list-query-results XXXXXXXXXXXXXXXXXXX --min-alerts=1 |  jq -r ".[].Project.externalURL.url"
+```
+
 ---
 
 ## Known errors
