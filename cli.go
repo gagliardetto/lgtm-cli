@@ -390,7 +390,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "output, o",
-						Usage: "File name to write repositories to.",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -506,7 +506,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "output, o",
-						Usage: "File name to write repositories to.",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -614,7 +614,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "output, o",
-						Usage: "File name to write repositories to.",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -711,7 +711,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "output, o",
-						Usage: "File name to write repositories to.",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -2151,7 +2151,7 @@ func saveTargetListToTempFile(outputFileName string, cmdName string, targets []s
 		log.Fatal(err)
 	}
 
-	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to temp file %s"), outputFileName))
+	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to %s"), outputFileName))
 
 	if err := outputFile.Close(); err != nil {
 		log.Fatal(err)
