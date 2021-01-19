@@ -819,8 +819,12 @@ func main() {
 						Usage: "Filepath to text file with list of repos.",
 					},
 					&cli.BoolFlag{
-						Name:  "all, a",
+						Name:  "all-followed, af",
 						Usage: "Query all followed projects.",
+					},
+					&cli.BoolFlag{
+						Name:  "all-lists, al",
+						Usage: "Query all current user's lists.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -838,6 +842,13 @@ func main() {
 					fileExt := filepath.Ext(queryFilepath)
 					if fileExt != ".ql" {
 						Fatalf("file is not a .ql: %s", queryFilepath)
+					}
+
+					projectListKeys := c.StringSlice("list-key")
+					projectListNames := c.StringSlice("list")
+					doAllLists := c.Bool("all-lists")
+					if len(projectListKeys)+len(projectListNames) > 0 && doAllLists {
+						panic("Cannot set --list-key/--list along with --all-lists")
 					}
 
 					queryBytes, err := ioutil.ReadFile(queryFilepath)
@@ -904,7 +915,7 @@ func main() {
 							// With cache:
 
 							// If no repos specified, and flag --all is true, then query all:
-							if c.Bool("all") {
+							if c.Bool("all-followed") {
 								Infof("Gonna query all %v projects", cache.NumProjects())
 								for _, pr := range cache.Projects() {
 									repoURLs = append(repoURLs, pr.ExternalURL.URL)
@@ -983,21 +994,25 @@ func main() {
 						}
 					}
 
-					projectListKeys := c.StringSlice("list-key")
-					projectListNames := c.StringSlice("list")
-
-					if len(projectListNames) > 0 {
-						// Add project lists by name:
+					if len(projectListNames) > 0 || doAllLists {
 						lists, err := client.ListProjectSelections()
 						if err != nil {
 							panic(err)
 						}
 
+						// Add project lists by name (if any):
 						for _, name := range projectListNames {
 							list := lists.ByName(name)
 							if list == nil {
 								Warnf("List %q not found; skipping", name)
 							} else {
+								projectListKeys = append(projectListKeys, list.Key)
+							}
+						}
+
+						if doAllLists {
+							// Add all created project lists
+							for _, list := range lists {
 								projectListKeys = append(projectListKeys, list.Key)
 							}
 						}
