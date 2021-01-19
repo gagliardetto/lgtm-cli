@@ -984,12 +984,14 @@ func main() {
 							panic(err)
 						}
 
-						// Add project lists by name:
-						list := lists.ByName(name)
-						if list == nil {
-							Warnf("List %q not found; skipping", name)
-						} else {
-							projectListKeys = append(projectListKeys, list.Key)
+						// Add project lists by name (if any):
+						for _, name := range projectListNames {
+							list := lists.ByName(name)
+							if list == nil {
+								Warnf("List %q not found; skipping", name)
+							} else {
+								projectListKeys = append(projectListKeys, list.Key)
+							}
 						}
 
 						if doAllLists {
