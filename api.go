@@ -1237,7 +1237,7 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 	// Get the body as text:
 	body, err := resp.Text()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	return fmt.Errorf(
 		"Status code: %v\nHeader:\n%s\nBody:\n\n %s",
