@@ -63,6 +63,12 @@ As for the GitHub token, one with **zero** permissions is advised (i.e. all scop
 	- You can find the `session.nonce` in highlighted point `5` in the above image.
 	- You can find the `session.long_session` in highlighted point `4` in the above image.
 	- You can find the `session.short_session` in highlighted point `3` in the above image.
+
+**NOTES**
+
+- The `api_version` is a value that changes from time to time.
+- If you get a `... resp.error="bad request"; resp.message="api_mismatch"`, it means it's time to go look for the new `api_version` value from lgtm.com.
+
 ---
 
 ## LGTM-CLI usage
