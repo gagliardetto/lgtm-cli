@@ -40,7 +40,7 @@ export LGTM_CLI_CONFIG=/path/to/lgtm.com_credentials.json # see example below
 
 You can intercept the lgtm.com session values from Chrome WebDev tools (and similar) after you've logged into lgtm.com (see below for tutorial).
 
-As for the GitHub token, one with **zero** permissions is advised.
+As for the GitHub token, one with **zero** permissions is advised (i.e. all scope checkboxes **non-checked**). You can create a new token here: https://github.com/settings/tokens/new
 
 ## [Chrome] Where to find the lgtm.com API credentials
 
