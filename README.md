@@ -59,10 +59,10 @@ As for the GitHub token, one with **zero** permissions is advised (i.e. all scop
 
 	![2021-01-22_18-56](https://user-images.githubusercontent.com/15271561/105527064-e55bca00-5ceb-11eb-8c48-1a8970d8f5a0.png)
 7. Copy the values into your `lgtm.com_credentials.json` file:
-	- You can find the `api_version` in point `2`.
-	- You can find the `session.nonce` in point `5`.
-	- You can find the `session.long_session` in point `4`.
-	- You can find the `session.short_session` in point `3`.
+	- You can find the `api_version` in highlighted point `2` in the above image.
+	- You can find the `session.nonce` in highlighted point `5` in the above image.
+	- You can find the `session.long_session` in highlighted point `4` in the above image.
+	- You can find the `session.short_session` in highlighted point `3` in the above image.
 ---
 
 ## LGTM-CLI usage
