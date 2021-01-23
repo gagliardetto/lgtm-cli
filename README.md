@@ -46,13 +46,17 @@ As for the GitHub token, one with **zero** permissions is advised (i.e. all scop
 
 1. Got to https://lgtm.com/ and signup/login.
 2. After you're logged in, open the Chrome DevTools > `Network` tab:
+
 	![2021-01-22_19-08](https://user-images.githubusercontent.com/15271561/105528478-b34b6780-5ced-11eb-8a59-aa72767121c8.png)
 3. Reload lgtm.com.
 4. Set filter to `XHR`:
+
 	![2021-01-22_18-52](https://user-images.githubusercontent.com/15271561/105526676-65356480-5ceb-11eb-9257-3fddaac6ce91.png)
 5. Click on an API request:
+
 	![2021-01-22_18-33](https://user-images.githubusercontent.com/15271561/105526873-a6c60f80-5ceb-11eb-95ce-de800a76c2a7.png)
 6. Go to the `Headers` tab and scroll to the `Request Headers` section:
+
 	![2021-01-22_18-56](https://user-images.githubusercontent.com/15271561/105527064-e55bca00-5ceb-11eb-8c48-1a8970d8f5a0.png)
 7. Copy the values into your `lgtm.com_credentials.json` file:
 	- You can find the `api_version` in point `2`.
