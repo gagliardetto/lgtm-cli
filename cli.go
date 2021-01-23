@@ -1049,7 +1049,7 @@ func main() {
 						return err
 					}
 
-					Infof("See query results at:")
+					Successf("See query results at:")
 					fmt.Println(resp.GetResultLink())
 					return nil
 				},
@@ -1281,7 +1281,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof(
+					Successf(
 						"%v projects and %v proto-projects; took %s",
 						len(projects),
 						len(protoProjects),
@@ -1310,7 +1310,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof("%v lists; took %s", len(lists), took())
+					Successf("%v lists; took %s", len(lists), took())
 
 					sort.Slice(lists, func(i, j int) bool {
 						return lists[i].Name < lists[j].Name
@@ -1349,7 +1349,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof(
+					Successf(
 						"Created new list %q; took %s",
 						name,
 						took(),
@@ -1380,7 +1380,7 @@ func main() {
 					if err != nil {
 						panic(err)
 					}
-					Infof(
+					Successf(
 						"Deleted list %q; took %s",
 						name,
 						took(),
@@ -1623,7 +1623,7 @@ func main() {
 									panic(err)
 								}
 							}
-							Infof("Added %v new projects to %q list.", addedCount, wantedListName)
+							Successf("Added %v new projects to %q list.", addedCount, wantedListName)
 						}
 					}
 
@@ -1705,7 +1705,7 @@ func main() {
 						}
 						startCursor = resp.Cursor
 					}
-					Infof(
+					Successf(
 						"Got %v results; took %s",
 						len(queryResults),
 						took(),
@@ -2279,7 +2279,7 @@ func (fpc *FollowedProjectCache) Refresh() error {
 	if err != nil {
 		return fmt.Errorf("error while getting list of followed projects: %s", err)
 	}
-	Infof("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
+	Successf("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
 	fpc.mu.Lock()
 	defer fpc.mu.Unlock()
