@@ -1,7 +1,9 @@
 ## Install
 
 ```bash
-go get -u github.com/gagliardetto/lgtm-cli
+(cd && GO111MODULE=on go get github.com/gagliardetto/lgtm-cli)
+
+cd $GOPATH/github.com/gagliardetto/lgtm-cli
 
 make install
 
