@@ -237,7 +237,7 @@ func main() {
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
 						// Load repo list from file(s):
-						repoListFilepaths := c.StringSlice("f")
+						repoListFilepaths := mustStringSliceNotNil(c.StringSlice("f"))
 						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
@@ -400,7 +400,7 @@ func main() {
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
-						repoListFilepaths := c.StringSlice("f")
+						repoListFilepaths := mustStringSliceNotNil(c.StringSlice("f"))
 						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
@@ -844,8 +844,8 @@ func main() {
 						Fatalf("file is not a .ql: %s", queryFilepath)
 					}
 
-					projectListKeys := c.StringSlice("list-key")
-					projectListNames := c.StringSlice("list")
+					projectListKeys := mustStringSliceNotNil(c.StringSlice("list-key"))
+					projectListNames := mustStringSliceNotNil(c.StringSlice("list"))
 					doAllLists := c.Bool("all-lists")
 					if len(projectListKeys)+len(projectListNames) > 0 && doAllLists {
 						panic("Cannot set --list-key/--list along with --all-lists")
@@ -860,7 +860,7 @@ func main() {
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
-						repoListFilepaths := c.StringSlice("f")
+						repoListFilepaths := mustStringSliceNotNil(c.StringSlice("f"))
 						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
@@ -909,7 +909,7 @@ func main() {
 							}
 						}
 
-						excluded := c.StringSlice("exclude")
+						excluded := mustStringSliceNotNil(c.StringSlice("exclude"))
 
 						if hasCache {
 							// With cache:
@@ -1079,7 +1079,7 @@ func main() {
 
 					force := c.Bool("F")
 
-					excluded := c.StringSlice("exclude")
+					excluded := mustStringSliceNotNil(c.StringSlice("exclude"))
 
 				RebuildLoop:
 					for _, pr := range protoProjects {
@@ -1191,7 +1191,7 @@ func main() {
 					force := c.Bool("F")
 					rebuildAll := c.Bool("all")
 
-					excluded := c.StringSlice("exclude")
+					excluded := mustStringSliceNotNil(c.StringSlice("exclude"))
 
 				RebuildLoop:
 					for _, pr := range projects {
@@ -1464,7 +1464,7 @@ func main() {
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
-						repoListFilepaths := c.StringSlice("f")
+						repoListFilepaths := mustStringSliceNotNil(c.StringSlice("f"))
 						repoURLsRaw = append(repoURLsRaw, mustLoadTargetsFromFilepaths(repoListFilepaths...)...)
 					}
 					repoURLsRaw = Deduplicate(repoURLsRaw)
@@ -1497,7 +1497,7 @@ func main() {
 
 					alreadyFollowedProjectKeys := make(map[string][]string, 0)
 
-					listNames := c.StringSlice("name")
+					listNames := mustStringSliceNotNil(c.StringSlice("name"))
 					lists, err := client.ListProjectSelections()
 					if err != nil {
 						panic(err)
@@ -2364,4 +2364,10 @@ func mustLoadTargetsFromFilepaths(paths ...string) []string {
 		}
 	}
 	return res
+}
+func mustStringSliceNotNil(sl []string) []string {
+	if sl == nil {
+		return make([]string, 0)
+	}
+	return sl
 }
