@@ -41,6 +41,7 @@ func main() {
 	var client *Client
 	var waitDuration time.Duration
 	var ignoreFollowedErrors bool
+	var noColorFlag bool
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	unfollower := func(isProto bool, key string, name string, etac *eta.ETA) {
@@ -107,9 +108,17 @@ func main() {
 		} else {
 			var knownOrNew string
 			if prj.IsKnown() {
-				knownOrNew = OrangeBG("[KNO]")
+				if noColorFlag {
+					knownOrNew = "[KNO]"
+				} else {
+					knownOrNew = OrangeBG("[KNO]")
+				}
 			} else {
-				knownOrNew = LimeBG("[NEW]")
+				if noColorFlag {
+					knownOrNew = "[NEW]"
+				} else {
+					knownOrNew = LimeBG("[NEW]")
+				}
 			}
 			Successf(
 				"[%s](%v/%v) Followed %s %s; ETA %s",
@@ -143,6 +152,11 @@ func main() {
 				Name:        "ignore-followed-errors",
 				Usage:       "Ignore errors that happen while getting list of followed projects (when that is acceptable).",
 				Destination: &ignoreFollowedErrors,
+			},
+			&cli.BoolFlag{
+				Name:        "x-no-color, nC",
+				Usage:       "[x] Disable color output.",
+				Destination: &noColorFlag,
 			},
 		},
 		Before: func(c *cli.Context) error {
