@@ -1132,7 +1132,13 @@ type GetProjectBySlugResponse struct {
 	Data *GetProjectBySlugResponseData `json:"data"`
 }
 type GetProjectBySlugResponseData struct {
-	Left *Project `json:"left"`
+	Left  *Project `json:"left"`
+	Right *Right   `json:"right"`
+}
+
+type Right struct {
+	RequestedURLIdentifier string   `json:"requestedUrlIdentifier"`
+	Redirect               *Project `json:"redirect"`
 }
 
 type StatusResponse struct {
@@ -1211,11 +1217,15 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 		return nil, response.StatusResponse
 	}
 
-	if response.Data == nil || response.Data.Left == nil {
+	if response.Data == nil || (response.Data.Left == nil && response.Data.Right == nil) {
 		return nil, formatRawResponseBody(resp)
 	}
 
-	return response.Data.Left, nil
+	if response.Data.Left != nil {
+		return response.Data.Left, nil
+	}
+
+	return response.Data.Right.Redirect, nil
 }
 
 // formatHTTPNotOKStatusCodeError is used to format an error when the status code is not 200.
