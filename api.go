@@ -1211,6 +1211,10 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 		return nil, response.StatusResponse
 	}
 
+	if response.Data == nil || response.Data.Left == nil {
+		return nil, formatHTTPNotOKStatusCodeError(resp)
+	}
+
 	return response.Data.Left, nil
 }
 
