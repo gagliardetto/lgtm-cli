@@ -1212,7 +1212,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	}
 
 	if response.Data == nil || response.Data.Left == nil {
-		return nil, formatHTTPNotOKStatusCodeError(resp)
+		return nil, formatRawResponseBody(resp)
 	}
 
 	return response.Data.Left, nil
@@ -1238,6 +1238,10 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 		}
 	}
 
+	return formatRawResponseBody(resp)
+}
+
+func formatRawResponseBody(resp *request.Response) error {
 	// Get the body as text:
 	body, err := resp.Text()
 	if err != nil {
