@@ -1559,6 +1559,7 @@ func main() {
 					}
 
 					projectKeys := make([]string, 0)
+				RepoLoop:
 					for _, repoURL := range repoURLs {
 						// Only built projects can be added to a list.
 						// try to find out whether it is a built project or not:
@@ -1587,7 +1588,8 @@ func main() {
 									)
 								} else {
 									// General error
-									panic(err)
+									Errorf("Error while executing client.GetProjectBySlug for %s: %s", repoURL, err)
+									continue RepoLoop
 								}
 							} else {
 								isABuiltProject = true

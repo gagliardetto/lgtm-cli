@@ -1172,7 +1172,7 @@ func (status *StatusResponse) Error() string {
 func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	req, err := cl.newRequest()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while cl.newRequest: %s", err)
 	}
 
 	base := "https://lgtm.com/internal_api/v0.2/getProjectBySlug"
@@ -1185,7 +1185,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	dst := base + "?" + vals.Encode()
 	resp, err := req.Get(dst)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while req.Get: %s", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, formatHTTPNotOKStatusCodeError(resp)
@@ -1245,7 +1245,7 @@ func formatRawResponseBody(resp *request.Response) error {
 	// Get the body as text:
 	body, err := resp.Text()
 	if err != nil {
-		return err
+		return fmt.Errorf("error while resp.Text: %s", err)
 	}
 	return fmt.Errorf(
 		"Status code: %v\nHeader:\n%s\nBody:\n\n %s",
