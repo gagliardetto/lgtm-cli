@@ -36,6 +36,8 @@ var (
 	ghClient       *ghc.Client
 )
 
+var gitCommitSHA = ""
+
 func main() {
 	var configFilepath string
 	var client *Client
@@ -127,6 +129,7 @@ func main() {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	app := &cli.App{
 		Name:        "lgtm-cli",
+		Version:     gitCommitSHA,
 		Description: "Unofficial lgtm.com CLI — https://github.com/gagliardetto/lgtm-cli",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
