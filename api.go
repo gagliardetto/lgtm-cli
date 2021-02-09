@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -1252,14 +1253,18 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 }
 
 func addRequestInfoToError(resp *request.Response, err error) error {
-	if resp.Request.ContentLength > 0 {
-		return fmt.Errorf(
-			"%s\nRequest: %s %s (with %v content)",
-			err.Error(),
-			resp.Request.Method,
-			resp.Request.URL.String(),
-			resp.Request.ContentLength,
-		)
+	if resp.Request.Body != nil {
+		reqBody, err := ioutil.ReadAll(resp.Request.Body)
+		if err == nil {
+			return fmt.Errorf(
+				"%s\nRequest: %s %s (with %v content)\nBody:\n%s",
+				err.Error(),
+				resp.Request.Method,
+				resp.Request.URL.String(),
+				resp.Request.ContentLength,
+				string(reqBody),
+			)
+		}
 	}
 
 	return fmt.Errorf(
