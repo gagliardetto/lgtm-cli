@@ -1244,11 +1244,30 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 			return decoder.Decode(&errResponse)
 		}()
 		if err == nil {
-			return &errResponse
+			return addRequestInfoToError(resp, &errResponse)
 		}
 	}
 
-	return formatRawResponseBody(resp)
+	return addRequestInfoToError(resp, formatRawResponseBody(resp))
+}
+
+func addRequestInfoToError(resp *request.Response, err error) error {
+	if resp.Request.ContentLength > 0 {
+		return fmt.Errorf(
+			"%s\nRequest: %s %s (with %v content)",
+			err.Error(),
+			resp.Request.Method,
+			resp.Request.URL.String(),
+			resp.Request.ContentLength,
+		)
+	}
+
+	return fmt.Errorf(
+		"%s\nRequest: %s %s",
+		err.Error(),
+		resp.Request.Method,
+		resp.Request.URL.String(),
+	)
 }
 
 func formatRawResponseBody(resp *request.Response) error {
