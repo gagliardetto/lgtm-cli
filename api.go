@@ -1253,6 +1253,9 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 }
 
 func addRequestInfoToError(resp *request.Response, err error) error {
+	if resp == nil || resp.Request == nil {
+		return err
+	}
 	if resp.Request.Body != nil {
 		reqBody, err := ioutil.ReadAll(resp.Request.Body)
 		if err == nil {
