@@ -1257,11 +1257,11 @@ func addRequestInfoToError(resp *request.Response, err error) error {
 		return err
 	}
 	if resp.Request.Body != nil {
-		reqBody, err := ioutil.ReadAll(resp.Request.Body)
-		if err == nil {
+		reqBody, errReadAll := ioutil.ReadAll(resp.Request.Body)
+		if errReadAll == nil {
 			return fmt.Errorf(
 				"%s\nRequest: %s %s (with %v content)\nBody:\n%s",
-				err.Error(),
+				err,
 				resp.Request.Method,
 				resp.Request.URL.String(),
 				resp.Request.ContentLength,
@@ -1272,7 +1272,7 @@ func addRequestInfoToError(resp *request.Response, err error) error {
 
 	return fmt.Errorf(
 		"%s\nRequest: %s %s",
-		err.Error(),
+		err,
 		resp.Request.Method,
 		resp.Request.URL.String(),
 	)
