@@ -1291,3 +1291,78 @@ func formatRawResponseBody(resp *request.Response) error {
 		body,
 	)
 }
+
+func (cl *Client) GetLoggedInUser() (*GetLoggedInUserResponseData, error) {
+	req, err := cl.newRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := req.Get(
+		Sf(
+			"https://lgtm.com/internal_api/v0.2/getLoggedInUser?apiVersion=%s",
+			cl.conf.APIVersion,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, formatHTTPNotOKStatusCodeError(resp)
+	}
+
+	reader, closer, err := resp.DecompressedReaderFromPool()
+	if err != nil {
+		return nil, fmt.Errorf("error while getting Reader: %s", err)
+	}
+	var response GetLoggedInUserResponse
+	err = func() error {
+		defer closer()
+		defer resp.Body.Close()
+		decoder := json.NewDecoder(reader)
+
+		return decoder.Decode(&response)
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+	}
+
+	if response.Status != STATUS_SUCCESS_STRING {
+		return nil, response.StatusResponse
+	}
+
+	if response.Data == nil || len(response.Data) == 0 || response.Data[0] == nil || response.Data[0].Person == nil {
+		return nil, ErrStaleSession
+	}
+
+	return response.Data[0], nil
+}
+
+var ErrStaleSession = errors.New("Your lgtm.com session is stale")
+
+type GetLoggedInUserResponse struct {
+	*StatusResponse
+	Data []*GetLoggedInUserResponseData `json:"data"`
+}
+type Person struct {
+	Key       string `json:"key"`
+	Slug      string `json:"slug"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatarUrl"`
+	IsPublic  bool   `json:"isPublic"`
+}
+type ExternalAccounts struct {
+	Provider    string      `json:"provider"`
+	Key         string      `json:"key"`
+	Username    string      `json:"username"`
+	ExternalURL ExternalURL `json:"externalUrl"`
+	Theme       string      `json:"theme"`
+}
+type GetLoggedInUserResponseData struct {
+	Person                      *Person             `json:"person,omitempty"`
+	ExternalAccounts            []*ExternalAccounts `json:"externalAccounts,omitempty"`
+	HasAdminPanelAccess         bool                `json:"hasAdminPanelAccess,omitempty"`
+	TermsAndPoliciesConsentDate int                 `json:"termsAndPoliciesConsentDate,omitempty"`
+	WaitForAuthz                bool                `json:"waitForAuthz,omitempty"`
+	SetupUsername               bool                `json:"setupUsername,omitempty"`
+}

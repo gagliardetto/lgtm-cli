@@ -191,6 +191,23 @@ func main() {
 					)
 				}
 			}
+
+			// Check whether the lgtm.com session is stale:
+			{
+				user, err := client.GetLoggedInUser()
+				if err != nil {
+					if err == ErrStaleSession {
+						Ln(RedBG("Fatal authentication error:"))
+						Ln("Your lgtm.com session is stale.")
+						Ln("Please refresh the session tokens and version by following this tutorial:")
+						Ln("https://github.com/gagliardetto/lgtm-cli#chrome-where-to-find-the-lgtmcom-api-credentials")
+						os.Exit(1)
+					} else {
+						panic(err)
+					}
+				}
+				Sfln("Logged in as %s", Shakespeare(user.Person.Slug))
+			}
 			return nil
 		},
 		Commands: []cli.Command{
