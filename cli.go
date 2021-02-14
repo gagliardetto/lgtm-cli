@@ -1468,7 +1468,7 @@ func main() {
 			},
 			{
 				Name:  "add-to-list",
-				Usage: "Add followed projects to a list.",
+				Usage: "Add built projects to a list.",
 				Flags: []cli.Flag{
 					&cli.StringSliceFlag{
 						Name:  "name",
@@ -1477,6 +1477,10 @@ func main() {
 					&cli.StringSliceFlag{
 						Name:  "repos, f",
 						Usage: "Filepath to text file with list of repos.",
+					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -1575,6 +1579,8 @@ func main() {
 						}
 					}
 
+					saveTargetListToTempFile(c.String("output"), "add-to-list_urls", repoURLs)
+
 					projectKeys := make([]string, 0)
 				RepoLoop:
 					for _, repoURL := range repoURLs {
@@ -1614,6 +1620,8 @@ func main() {
 							}
 						}
 					}
+
+					saveTargetListToTempFile(c.String("output"), "add-to-list_keys", projectKeys)
 
 					{
 						for _, wantedListName := range listNames {
