@@ -1352,17 +1352,17 @@ type Person struct {
 	IsPublic  bool   `json:"isPublic"`
 }
 type ExternalAccounts struct {
-	Provider    string      `json:"provider"`
-	Key         string      `json:"key"`
-	Username    string      `json:"username"`
-	ExternalURL ExternalURL `json:"externalUrl"`
-	Theme       string      `json:"theme"`
+	Provider    string       `json:"provider"`
+	Key         string       `json:"key"`
+	Username    string       `json:"username"`
+	ExternalURL *ExternalURL `json:"externalUrl"`
+	Theme       string       `json:"theme"`
 }
 type GetLoggedInUserResponseData struct {
-	Person                      *Person             `json:"person,omitempty"`
-	ExternalAccounts            []*ExternalAccounts `json:"externalAccounts,omitempty"`
-	HasAdminPanelAccess         bool                `json:"hasAdminPanelAccess,omitempty"`
-	TermsAndPoliciesConsentDate int                 `json:"termsAndPoliciesConsentDate,omitempty"`
-	WaitForAuthz                bool                `json:"waitForAuthz,omitempty"`
-	SetupUsername               bool                `json:"setupUsername,omitempty"`
+	Person              *Person             `json:"person,omitempty"`
+	ExternalAccounts    []*ExternalAccounts `json:"externalAccounts,omitempty"`
+	HasAdminPanelAccess bool                `json:"hasAdminPanelAccess,omitempty"`
+	//TermsAndPoliciesConsentDate int                 `json:"termsAndPoliciesConsentDate,omitempty"`
+	WaitForAuthz  bool `json:"waitForAuthz,omitempty"`
+	SetupUsername bool `json:"setupUsername,omitempty"`
 }
