@@ -197,16 +197,16 @@ func main() {
 				user, err := client.GetLoggedInUser()
 				if err != nil {
 					if err == ErrStaleSession {
-						Ln(RedBG("Fatal authentication error:"))
-						Ln("Your lgtm.com session is stale.")
-						Ln("Please refresh the session tokens and version by following this tutorial:")
-						Ln("https://github.com/gagliardetto/lgtm-cli#chrome-where-to-find-the-lgtmcom-api-credentials")
+						Errorln(RedBG("Fatal authentication error:"))
+						Errorln("Your lgtm.com session is stale.")
+						Errorln("Please refresh the session tokens and version by following this tutorial:")
+						Errorln("https://github.com/gagliardetto/lgtm-cli#chrome-where-to-find-the-lgtmcom-api-credentials")
 						os.Exit(1)
 					} else {
 						panic(err)
 					}
 				}
-				Sfln("Logged in as %s", Shakespeare(user.Person.Slug))
+				Errorln(Sf("Logged in as %s", Shakespeare(user.Person.Slug)))
 			}
 			return nil
 		},
@@ -2196,7 +2196,7 @@ func saveTargetListToTempFile(outputFileName string, cmdName string, targets []s
 		log.Fatal(err)
 	}
 
-	fmt.Println(Sf(PurpleBG("Wrote compiled list of targets to %s"), outputFileName))
+	Errorln(Sf(PurpleBG("Wrote compiled list of targets to %s"), outputFileName))
 
 	if err := outputFile.Close(); err != nil {
 		log.Fatal(err)
