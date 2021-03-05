@@ -811,6 +811,88 @@ func main() {
 				},
 			},
 			{
+				Name:  "follow-by-go-imported-by",
+				Usage: "Follow Go projects by importers of a package.",
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "limit",
+						Usage: "Max number of code results.",
+					},
+					&cli.BoolFlag{
+						Name:  "force, y",
+						Usage: "Don't ask for confirmation.",
+					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
+					},
+				},
+				Action: func(c *cli.Context) error {
+
+					pkg := c.Args().First()
+					if pkg == "" {
+						Fataln("Must provide a package")
+					}
+					limit := c.Int("limit")
+					force := c.Bool("y")
+
+					repoURLs := make([]string, 0)
+					{
+						Debugf("Getting list of importers of %s Go package ...", ShakespeareBG(pkg))
+						repos, err := GetImportersOfGolangPackage(pkg, limit)
+						if err != nil {
+							Fatalf("Error while getting go package importers' list %q: %s", pkg, err)
+						}
+
+						Debugf("%s is imported by %v repos", ShakespeareBG(pkg), len(repos))
+						repoURLs = append(repoURLs, repos...)
+					}
+
+					toBeFollowed := repoURLs
+					cache, err := client.GetFollowedCache()
+					hasCache := err == nil && cache != nil
+					if !hasCache {
+						if ignoreFollowedErrors {
+							Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+						} else {
+							panic(err)
+						}
+					} else {
+						// Exclude already-followed projects:
+						toBeFollowed = cache.RemoveFollowed(repoURLs)
+					}
+					totalToBeFollowed := len(toBeFollowed)
+					Infof("Will follow %v projects...", totalToBeFollowed)
+					if !force {
+						CLIMustConfirmYes("Do you want to continue?")
+					}
+
+					// Write toBeFollowed to temp file:
+					saveTargetListToTempFile(c.String("output"), "follow-by-code-search", toBeFollowed)
+
+					followedNew := 0
+
+					etac := eta.New(int64(totalToBeFollowed))
+
+					// Follow repos:
+					for _, repoURL := range toBeFollowed {
+						envelope := follower(repoURL, etac)
+						if envelope != nil {
+							// If the project was NOT already known to lgtm.com,
+							// sleep to avoid triggering too many new builds:
+							isNew := !envelope.IsKnown()
+							if isNew {
+								followedNew++
+								time.Sleep(waitDuration)
+							}
+						}
+					}
+
+					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
+					return nil
+				},
+			},
+			{
 				Name:  "query",
 				Usage: "Run a query on one or multiple projects.",
 				Flags: []cli.Flag{
