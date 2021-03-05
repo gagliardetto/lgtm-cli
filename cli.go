@@ -412,6 +412,10 @@ func main() {
 						Name:  "output, o",
 						Usage: "Filepath to which save the list of target repositories.",
 					},
+					&cli.IntFlag{
+						Name:  "start",
+						Usage: "Start following from project N of the final list (one-indexed).",
+					},
 				},
 				Action: func(c *cli.Context) error {
 
@@ -468,6 +472,21 @@ func main() {
 						}
 					}
 
+					start := c.Int("start")
+					{ // Trim repoURLs if --start is provided.
+						if start > 0 && start > len(repoURLs) {
+							Fatalf(
+								"Got %v projects, but the --start flag value is set to %v",
+								len(repoURLs),
+								start,
+							)
+						}
+						if start > 0 {
+							Infof("Skipping %v projects", start-1)
+							repoURLs = repoURLs[start-1:]
+						}
+					}
+
 					toBeFollowed := repoURLs
 					cache, err := client.GetFollowedCache()
 					hasCache := err == nil && cache != nil
@@ -481,6 +500,7 @@ func main() {
 						// Exclude already-followed projects:
 						toBeFollowed = cache.RemoveFollowed(repoURLs)
 					}
+
 					totalToBeFollowed := len(toBeFollowed)
 					Infof("Will follow %v projects...", totalToBeFollowed)
 
