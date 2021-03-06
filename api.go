@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gagliardetto/request"
@@ -110,7 +111,7 @@ func (cl *Client) ListFollowedProjects() ([]*Project, []*ProtoProject, error) {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response ProjectListResponse
 	err = func() error {
@@ -121,7 +122,7 @@ func (cl *Client) ListFollowedProjects() ([]*Project, []*ProtoProject, error) {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 	projectList := make([]*Project, 0)
 	protoProjectList := make([]*ProtoProject, 0)
@@ -166,7 +167,7 @@ func (cl *Client) UnfollowProject(key string) error {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -177,7 +178,7 @@ func (cl *Client) UnfollowProject(key string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -207,7 +208,7 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -218,7 +219,7 @@ func (cl *Client) UnfollowProtoProject(key string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -254,7 +255,7 @@ func (cl *Client) FollowProject(u string) (*Envelope, error) {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response FollowProjectResponse
 	err = func() error {
@@ -265,7 +266,7 @@ func (cl *Client) FollowProject(u string) (*Envelope, error) {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -296,7 +297,7 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -307,7 +308,7 @@ func (cl *Client) DeleteProjectSelection(name string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -338,7 +339,7 @@ func (cl *Client) CreateProjectSelection(name string) error {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -349,7 +350,7 @@ func (cl *Client) CreateProjectSelection(name string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -391,7 +392,7 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -402,7 +403,7 @@ func (cl *Client) AddProjectToSelection(selectionID string, projectKeys ...strin
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
 		return &response
@@ -444,7 +445,7 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response SearchSuggestionsResponse
 	err = func() error {
@@ -455,7 +456,7 @@ func (cl *Client) GetSearchSuggestions(str string) ([]*SearchSuggestionItem, err
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
 		return nil, response.StatusResponse
@@ -505,7 +506,7 @@ func (cl *Client) ListProjectSelections() (ProjectSelectionBareSlice, error) {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response ProjectSelectionListResponse
 	err = func() error {
@@ -516,7 +517,7 @@ func (cl *Client) ListProjectSelections() (ProjectSelectionBareSlice, error) {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -562,7 +563,7 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response ListProjectsInSelectionResponse
 	err = func() error {
@@ -573,7 +574,7 @@ func (cl *Client) ListProjectsInSelection(name string) (*ProjectSelectionFull, e
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -644,7 +645,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response QueryResponse
 	err = func() error {
@@ -655,7 +656,7 @@ func (cl *Client) Query(conf *QueryConfig) (*QueryResponseData, error) {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -784,7 +785,7 @@ func (cl *Client) RebuildProtoProject(key string) error {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -795,7 +796,7 @@ func (cl *Client) RebuildProtoProject(key string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -837,7 +838,7 @@ func (cl *Client) NewBuildAttempt(projectKey string, lang string) error {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -848,7 +849,7 @@ func (cl *Client) NewBuildAttempt(projectKey string, lang string) error {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
 		return &response
@@ -880,7 +881,7 @@ func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error 
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return fmt.Errorf("error while getting Reader: %s", err)
+		return fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response StatusResponse
 	err = func() error {
@@ -891,7 +892,7 @@ func (cl *Client) RequestTestBuild(urlIdentifier string, langs ...string) error 
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling: %s", err)
+		return fmt.Errorf("error while unmarshaling: %w", err)
 	}
 	if response.Status != STATUS_SUCCESS_STRING {
 		return &response
@@ -954,7 +955,7 @@ func (cl *Client) GetProjectLatestStateStats(projectKey string) (*LatestStateSta
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response GetProjectLatestStateStatsResponse
 	err = func() error {
@@ -965,7 +966,7 @@ func (cl *Client) GetProjectLatestStateStats(projectKey string) (*LatestStateSta
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -1015,7 +1016,7 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response GetProjectsByKeyResponse
 	err = func() error {
@@ -1026,7 +1027,7 @@ func (cl *Client) GetProjectsByKey(keys ...string) (*GetProjectsByKeyResponseDat
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -1075,7 +1076,7 @@ func (cl *Client) GetQueryResults(queryID string, orderBy OrderBy, startCursor s
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response GetQueryResultsResponse
 	err = func() error {
@@ -1086,7 +1087,7 @@ func (cl *Client) GetQueryResults(queryID string, orderBy OrderBy, startCursor s
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -1152,10 +1153,19 @@ type StatusResponse struct {
 func (status *StatusResponse) IsNotFound() bool {
 	return status.Status == STATUS_ERROR_STRING && status.ErrorString == "not found"
 }
+func (status *StatusResponse) IsFork() bool {
+	return status.Status == STATUS_ERROR_STRING &&
+		status.ErrorString == "bad request" &&
+		strings.Contains(status.Message, "This project appears to be a fork")
+}
 
-func isStatusResponseError(err error) bool {
-	_, ok := err.(*StatusResponse)
-	return ok
+func asStatusResponseError(err error) *StatusResponse {
+	var e *StatusResponse
+	// Note: *StatusResponse is the type of the error.
+	if errors.As(err, &e) {
+		return e
+	}
+	return nil
 }
 
 //
@@ -1179,7 +1189,7 @@ func (status *StatusResponse) Error() string {
 func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	req, err := cl.newRequest()
 	if err != nil {
-		return nil, fmt.Errorf("error while cl.newRequest: %s", err)
+		return nil, fmt.Errorf("error while cl.newRequest: %w", err)
 	}
 
 	base := "https://lgtm.com/internal_api/v0.2/getProjectBySlug"
@@ -1192,7 +1202,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	dst := base + "?" + vals.Encode()
 	resp, err := req.Get(dst)
 	if err != nil {
-		return nil, fmt.Errorf("error while req.Get: %s", err)
+		return nil, fmt.Errorf("error while req.Get: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, formatHTTPNotOKStatusCodeError(resp)
@@ -1200,7 +1210,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response GetProjectBySlugResponse
 	err = func() error {
@@ -1211,7 +1221,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {
@@ -1219,7 +1229,7 @@ func (cl *Client) GetProjectBySlug(slug string) (*Project, error) {
 	}
 
 	if response.Data == nil || (response.Data.Left == nil && response.Data.Right == nil) {
-		return nil, formatRawResponseBody(resp)
+		return nil, formatRawResponseBodyError(resp)
 	}
 
 	if response.Data.Left != nil {
@@ -1234,7 +1244,7 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 	{ // Try parsing the response body as a StatusResponse:
 		reader, closer, err := resp.DecompressedReaderFromPool()
 		if err != nil {
-			panic(fmt.Errorf("error while getting Reader: %s", err))
+			panic(fmt.Errorf("error while getting Reader: %w", err))
 		}
 		var errResponse StatusResponse
 		err = func() error {
@@ -1249,40 +1259,59 @@ func formatHTTPNotOKStatusCodeError(resp *request.Response) error {
 		}
 	}
 
-	return addRequestInfoToError(resp, formatRawResponseBody(resp))
+	return addRequestInfoToError(resp, formatRawResponseBodyError(resp))
 }
 
-func addRequestInfoToError(resp *request.Response, err error) error {
-	if resp == nil || resp.Request == nil {
-		return err
+// EnrichedError is an error that wraps another error, adding information
+// on the request if it is available.
+type EnrichedError struct {
+	err  error
+	resp *request.Response
+}
+
+func (e *EnrichedError) Unwrap() error { return e.err }
+
+//
+func (eerr *EnrichedError) Error() string {
+	if eerr.err == nil {
+		return ""
 	}
-	if resp.Request.Body != nil {
-		reqBody, errReadAll := ioutil.ReadAll(resp.Request.Body)
+	if eerr.resp == nil || eerr.resp.Request == nil {
+		return eerr.err.Error()
+	}
+	if eerr.resp.Request.Body != nil {
+		reqBody, errReadAll := ioutil.ReadAll(eerr.resp.Request.Body)
 		if errReadAll == nil {
-			return fmt.Errorf(
+			return Sf(
 				"%s\nRequest: %s %s (with %v content)\nBody:\n%s",
-				err,
-				resp.Request.Method,
-				resp.Request.URL.String(),
-				resp.Request.ContentLength,
+				eerr.err,
+				eerr.resp.Request.Method,
+				eerr.resp.Request.URL.String(),
+				eerr.resp.Request.ContentLength,
 				string(reqBody),
 			)
 		}
 	}
 
-	return fmt.Errorf(
+	return Sf(
 		"%s\nRequest: %s %s",
-		err,
-		resp.Request.Method,
-		resp.Request.URL.String(),
+		eerr.err,
+		eerr.resp.Request.Method,
+		eerr.resp.Request.URL.String(),
 	)
 }
+func addRequestInfoToError(resp *request.Response, err error) error {
+	return &EnrichedError{
+		err:  err,
+		resp: resp,
+	}
+}
 
-func formatRawResponseBody(resp *request.Response) error {
+func formatRawResponseBodyError(resp *request.Response) error {
 	// Get the body as text:
 	body, err := resp.Text()
 	if err != nil {
-		return fmt.Errorf("error while resp.Text: %s", err)
+		return fmt.Errorf("error while resp.Text: %w", err)
 	}
 	return fmt.Errorf(
 		"Status code: %v\nHeader:\n%s\nBody:\n\n %s",
@@ -1313,7 +1342,7 @@ func (cl *Client) GetLoggedInUser() (*GetLoggedInUserResponseData, error) {
 
 	reader, closer, err := resp.DecompressedReaderFromPool()
 	if err != nil {
-		return nil, fmt.Errorf("error while getting Reader: %s", err)
+		return nil, fmt.Errorf("error while getting Reader: %w", err)
 	}
 	var response GetLoggedInUserResponse
 	err = func() error {
@@ -1324,7 +1353,7 @@ func (cl *Client) GetLoggedInUser() (*GetLoggedInUserResponseData, error) {
 		return decoder.Decode(&response)
 	}()
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
 	}
 
 	if response.Status != STATUS_SUCCESS_STRING {

@@ -101,11 +101,36 @@ func main() {
 
 		prj, err := client.FollowProject(u)
 		if err != nil {
-			Errorf(
-				"error while following project %s : %s",
-				u,
-				err,
-			)
+			if ee := asStatusResponseError(err); ee != nil {
+				if ee.IsNotFound() {
+					Warnf(
+						"%s was %s.",
+						u,
+						OrangeBG(Bold("not found")),
+					)
+				} else if ee.IsFork() {
+					Warnf(
+						"%s is a %s.",
+						u,
+						OrangeBG(Bold("fork")),
+					)
+				} else {
+					// Other error
+					Errorf(
+						"Error while following project %s : %s",
+						u,
+						err,
+					)
+				}
+
+			} else {
+				// General error
+				Errorf(
+					"Error while following project %s : %s",
+					u,
+					err,
+				)
+			}
 		} else {
 			var knownOrNew string
 			if prj.IsKnown() {
@@ -374,7 +399,7 @@ func main() {
 
 							pr, err := client.GetProjectBySlug(parsed.Slug())
 							if err != nil {
-								if isStatusResponseError(err) && err.(*StatusResponse).IsNotFound() {
+								if ee := asStatusResponseError(err); ee != nil && ee.IsNotFound() {
 									Warnf(
 										"Project %s is not a built project.",
 										trimGithubPrefix(repoURL),
@@ -1090,7 +1115,7 @@ func main() {
 
 								pr, err := client.GetProjectBySlug(parsed.Slug())
 								if err != nil {
-									if isStatusResponseError(err) && err.(*StatusResponse).IsNotFound() {
+									if ee := asStatusResponseError(err); ee != nil && ee.IsNotFound() {
 										Warnf(
 											"Project %s is not a built project.",
 											trimGithubPrefix(repoURL),
@@ -1706,7 +1731,7 @@ func main() {
 							}
 							pr, err := client.GetProjectBySlug(parsed.Slug())
 							if err != nil {
-								if isStatusResponseError(err) && err.(*StatusResponse).IsNotFound() {
+								if ee := asStatusResponseError(err); ee != nil && ee.IsNotFound() {
 									Warnf(
 										"Project %s is not a built project; cannot be added to list.",
 										trimGithubPrefix(repoURL),
@@ -2034,13 +2059,13 @@ func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 		if isOrg {
 			orgRepos, err := ghClient.ListReposByOrg(owner)
 			if err != nil {
-				return nil, fmt.Errorf("error while ListReposByOrg: %s", err)
+				return nil, fmt.Errorf("error while ListReposByOrg: %w", err)
 			}
 			repoList = append(repoList, orgRepos...)
 		} else {
 			userRepos, err := ghClient.ListReposByUser(owner)
 			if err != nil {
-				return nil, fmt.Errorf("error while ListReposByUser: %s", err)
+				return nil, fmt.Errorf("error while ListReposByUser: %w", err)
 			}
 			repoList = append(repoList, userRepos...)
 		}
@@ -2052,13 +2077,13 @@ func GithubGetRepoList(owner string) ([]*github.Repository, error) {
 func LoadConfigFromFile(filepath string) (*Config, error) {
 	jsonFile, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("error while reading config file from %q: %s", filepath, err)
+		return nil, fmt.Errorf("error while reading config file from %q: %w", filepath, err)
 	}
 
 	var conf Config
 	err = json.Unmarshal(jsonFile, &conf)
 	if err != nil {
-		return nil, fmt.Errorf("error while unmarshaling config file: %s", err)
+		return nil, fmt.Errorf("error while unmarshaling config file: %w", err)
 	}
 
 	return &conf, nil
@@ -2103,7 +2128,7 @@ func (conf *Config) Validate() error {
 		return errors.New("conf.session is not set")
 	}
 	if err := conf.Session.Validate(); err != nil {
-		return fmt.Errorf("error while validating conf.session: %s", err)
+		return fmt.Errorf("error while validating conf.session: %w", err)
 	}
 	if conf.GitHub == nil {
 		return errors.New("conf.github is not set")
@@ -2409,7 +2434,7 @@ func (fpc *FollowedProjectCache) Refresh() error {
 	Infof("Getting list of followed projects...")
 	projects, protoProjects, err := fpc.client.ListFollowedProjects()
 	if err != nil {
-		return fmt.Errorf("error while getting list of followed projects: %s", err)
+		return fmt.Errorf("error while getting list of followed projects: %w", err)
 	}
 	Successf("Currently %v projects (and %v proto) are followed; took %s", len(projects), len(protoProjects), took())
 
