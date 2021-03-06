@@ -72,8 +72,8 @@ github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7 h1:7qE3My6PxV4W0b
 github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7/go.mod h1:1X2IK4FQZYTF/EIR7SeCspQnmRAC12wqfrCDrs+4xSs=
 github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229 h1:AbFXcOPzJGU/JNGGO4cYilsJfLs0nAsA/80WqtBjvms=
 github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229/go.mod h1:C5sFpewVXDqWbq2zryJjvW5w120W5YfCb+UZ2avQQ8A=
-github.com/gagliardetto/gh-client v0.0.0-20201230205624-1ed4869642ed h1:DDPzya5t+KNO4oNWjFSRFbjWzCTEwobF1bldBlcXgKk=
-github.com/gagliardetto/gh-client v0.0.0-20201230205624-1ed4869642ed/go.mod h1:pQfMg3Y555NqZhrzuINz5EuWEomq4CWHwksY7riZPLU=
+github.com/gagliardetto/gh-client v0.0.0-20210306172512-a9cd1b8cb1f8 h1:t/yGdSrontWlTPGG2UuSQhV7oBuR/9C+n2Bcf/9NNtQ=
+github.com/gagliardetto/gh-client v0.0.0-20210306172512-a9cd1b8cb1f8/go.mod h1:pQfMg3Y555NqZhrzuINz5EuWEomq4CWHwksY7riZPLU=
 github.com/gagliardetto/hashsearch v0.0.0-20191005111333-09dd671e19f9 h1:o9aZ1Wqq9jjl8q5DdGEkmyckXIHkFaKv8yfgbZWzXhI=
 github.com/gagliardetto/hashsearch v0.0.0-20191005111333-09dd671e19f9/go.mod h1:513DXpQPzeRo7d4dsCP3xO3XI8hgvruMl9njxyQeraQ=
 github.com/gagliardetto/request v0.8.1-0.20190815080712-c8d37984afc2 h1:qx9LgbMmDV+K48Pyjvj7AcD/pIbhhLgV9AtrJ8FzEQ0=

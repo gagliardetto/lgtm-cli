@@ -9,7 +9,7 @@ require (
 	github.com/gagliardetto/bianconiglio v0.0.0-20190606172837-89e88fc437e7
 	github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7
 	github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229 // indirect
-	github.com/gagliardetto/gh-client v0.0.0-20201230205624-1ed4869642ed
+	github.com/gagliardetto/gh-client v0.0.0-20210306172512-a9cd1b8cb1f8
 	github.com/gagliardetto/request v0.8.1-0.20190815080712-c8d37984afc2
 	github.com/gagliardetto/treeout v0.0.0-20190606173918-e39ca299e8d8 // indirect
 	github.com/gagliardetto/utilz v0.0.0-20210102013557-6ca959bfa74c
