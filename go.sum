@@ -80,8 +80,8 @@ github.com/gagliardetto/bianconiglio v0.0.0-20190606172837-89e88fc437e7 h1:hjsAR
 github.com/gagliardetto/bianconiglio v0.0.0-20190606172837-89e88fc437e7/go.mod h1:T6vqvuQ8c5mY1svXtSDf+RkFZOjWSZDKWu4kXY38EGA=
 github.com/gagliardetto/depnet v0.0.0-20210307170001-ce77129da456 h1:R+5FEN8R8Y5fc2WH4Aeb/MtqalYl6m9rM/VJLwhfDiE=
 github.com/gagliardetto/depnet v0.0.0-20210307170001-ce77129da456/go.mod h1:WP59hzpDI2MnT3eLyMOy5ItWUsYq8L9netTaFsK8WNo=
-github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7 h1:7qE3My6PxV4W0bLwAwt7XfmSL/hmQ3ihEFXpYEYU/uw=
-github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7/go.mod h1:1X2IK4FQZYTF/EIR7SeCspQnmRAC12wqfrCDrs+4xSs=
+github.com/gagliardetto/eta v0.0.0-20210307182519-e259ceba03cf h1:fUIaFRK9emf3SBaQa4GRFdRbObDB8VBI7m1R/I6DVDY=
+github.com/gagliardetto/eta v0.0.0-20210307182519-e259ceba03cf/go.mod h1:Onru+cukX3KNx9KKQBP9jCJagPOekbokfQo8qK2WN2w=
 github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229 h1:AbFXcOPzJGU/JNGGO4cYilsJfLs0nAsA/80WqtBjvms=
 github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229/go.mod h1:C5sFpewVXDqWbq2zryJjvW5w120W5YfCb+UZ2avQQ8A=
 github.com/gagliardetto/gh-client v0.0.0-20210307162512-a3ecadcd1505 h1:RB+qa8b448pY9D6zvSgQBegAGineG0GgdIMZnF8YSno=

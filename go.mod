@@ -6,8 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.6.1
 	github.com/gagliardetto/bianconiglio v0.0.0-20190606172837-89e88fc437e7
 	github.com/gagliardetto/depnet v0.0.0-20210307170001-ce77129da456
-	github.com/gagliardetto/eta v0.0.0-20200514101302-dab63bd2bef7
-	github.com/gagliardetto/fixedarr v0.0.0-20190606172952-a9bbe0c53229 // indirect
+	github.com/gagliardetto/eta v0.0.0-20210307182519-e259ceba03cf
 	github.com/gagliardetto/gh-client v0.0.0-20210307162512-a3ecadcd1505
 	github.com/gagliardetto/ref v0.0.0-20210206133004-be4e0e122a03
 	github.com/gagliardetto/request v0.8.1-0.20190815080712-c8d37984afc2
