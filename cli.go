@@ -110,9 +110,8 @@ func main() {
 					)
 				} else if ee.IsFork() {
 					Warnf(
-						"%s is a %s.",
+						"%s "+OrangeBG(Bold("is a fork")),
 						u,
-						OrangeBG(Bold("fork")),
 					)
 				} else {
 					// Other error
