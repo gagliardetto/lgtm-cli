@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/gagliardetto/bianconiglio"
+	"github.com/gagliardetto/depnet/depnetloader"
 	"github.com/gagliardetto/eta"
 	ghc "github.com/gagliardetto/gh-client"
+	"github.com/gagliardetto/ref"
 	. "github.com/gagliardetto/utilz"
 	"github.com/google/go-github/github"
 	"github.com/goware/urlx"
@@ -43,6 +45,7 @@ func main() {
 	var client *Client
 	var waitDuration time.Duration
 	var ignoreFollowedErrors bool
+	var noCache bool
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	unfollower := func(isProto bool, key string, name string, etac *eta.ETA) {
@@ -171,8 +174,17 @@ func main() {
 				Usage:       "Ignore errors that happen while getting list of followed projects (when that is acceptable).",
 				Destination: &ignoreFollowedErrors,
 			},
+			&cli.BoolFlag{
+				Name:        "nocache",
+				Usage:       "Don't fetch the list of followed projects.",
+				Destination: &noCache,
+			},
 		},
 		Before: func(c *cli.Context) error {
+
+			if noCache {
+				ignoreFollowedErrors = true
+			}
 
 			configFilepathFromEnv := os.Getenv("LGTM_CLI_CONFIG")
 
@@ -239,7 +251,7 @@ func main() {
 				Name:  "unfollow-all",
 				Usage: "Unfollow all currently followed repositories (a.k.a. \"projects\").",
 				Action: func(c *cli.Context) error {
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(false)
 					if err != nil {
 						panic(err)
 					}
@@ -318,7 +330,7 @@ func main() {
 						CLIMustConfirmYes("Do you really want to unfollow all projects?")
 					}
 
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -331,13 +343,13 @@ func main() {
 						// We got the list of followed projects, so we can use it:
 
 						// Match projects against list of repos followed:
-						projectsToBeUnfollowed := Filter(cache.Projects(),
+						projectsToBeUnfollowed := ref.Filter(cache.Projects(),
 							func(i int, pr *Project) bool {
 								_, isToBeUnfollowed := HasMatch(pr.ExternalURL.URL, repoURLPatterns)
 								return isToBeUnfollowed
 							}).([]*Project)
 
-						protoToBeUnfollowed := Filter(cache.ProtoProjects(),
+						protoToBeUnfollowed := ref.Filter(cache.ProtoProjects(),
 							func(i int, pr *ProtoProject) bool {
 								_, isToBeUnfollowed := HasMatch(trimDotGit(pr.CloneURL), repoURLPatterns)
 								return isToBeUnfollowed
@@ -412,9 +424,11 @@ func main() {
 							}
 						}
 
-						etac := eta.New(int64(len(projectKeys)))
-						for projectURL, projectKey := range projectKeys {
-							unfollower(false, projectKey, projectURL, etac)
+						if len(projectKeys) > 0 {
+							etac := eta.New(int64(len(projectKeys)))
+							for projectURL, projectKey := range projectKeys {
+								unfollower(false, projectKey, projectURL, etac)
+							}
 						}
 					}
 					return nil
@@ -512,7 +526,7 @@ func main() {
 					}
 
 					toBeFollowed := repoURLs
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -621,7 +635,7 @@ func main() {
 					}
 
 					toBeFollowed := repoURLs
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -719,7 +733,7 @@ func main() {
 					}
 
 					toBeFollowed := repoURLs
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -811,7 +825,7 @@ func main() {
 					}
 
 					toBeFollowed := repoURLs
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -893,7 +907,7 @@ func main() {
 					}
 
 					toBeFollowed := repoURLs
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -933,6 +947,150 @@ func main() {
 					}
 
 					Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
+					return nil
+				},
+			},
+			{
+				Name:  "follow-by-depnet",
+				Usage: "Follow repositories that depend on a specific repository/package (GitHub Dependency Network).",
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "limit",
+						Usage: "Max number of repos to follow.",
+					},
+					&cli.BoolFlag{
+						Name:  "force, y",
+						Usage: "Don't ask for confirmation.",
+					},
+					&cli.StringFlag{
+						Name:  "output, o",
+						Usage: "Filepath to which save the list of target repositories.",
+					},
+
+					&cli.StringFlag{
+						Name:  "type",
+						Usage: "Type of dependents to select (default=REPOSITORY).",
+					},
+					&cli.StringFlag{
+						Name:  "sub",
+						Usage: "Select a specific subpackage.",
+					},
+					&cli.BoolFlag{
+						Name:  "info",
+						Usage: "Print dependents stats and exit.",
+					},
+				},
+				Action: func(c *cli.Context) error {
+
+					target := c.Args().First()
+					if target == "" {
+						cli.ShowAppHelp(c)
+						Fataln("Must provide a repo")
+					}
+					limit := c.Int("limit")
+					force := c.Bool("y")
+					infoOnly := c.Bool("info")
+					subPackage := c.String("sub")
+
+					typ := c.String("type")
+					if typ == "" {
+						typ = depnetloader.TYPE_REPOSITORY
+					}
+
+					info, err :=
+						depnetloader.NewLoader(target).
+							Type(typ).
+							GetInfo()
+					if err != nil {
+						panic(err)
+					}
+
+					if infoOnly {
+						JSON(true, info)
+						return nil
+					}
+
+					{
+						if subPackage == "" {
+							Debugf("Getting list of dependents on %s ...", ShakespeareBG(target))
+						} else {
+							Debugf(
+								"Getting list of dependents on %s, subpackage %s ...",
+								ShakespeareBG(target),
+								ShakespeareBG(subPackage),
+							)
+						}
+						cache, err := client.GetFollowedCache(noCache)
+						hasCache := err == nil && cache != nil
+						if !hasCache {
+							if ignoreFollowedErrors {
+								Warnf("Could not load list of followed projects. Continuing without list of followed projects.")
+							} else {
+								panic(err)
+							}
+						}
+
+						var totalToBeFollowed int
+						if typ == depnetloader.TYPE_REPOSITORY {
+							totalToBeFollowed = info.Dependents.Counts.Repositories
+						} else {
+							totalToBeFollowed = info.Dependents.Counts.Packages
+						}
+						if limit == 0 {
+							Infof("Will follow %v projects...", totalToBeFollowed)
+							if !force {
+								CLIMustConfirmYes("Do you want to continue?")
+							}
+						} else {
+							totalToBeFollowed = limit
+						}
+
+						writer := writtableTargetListToTempFile(c.String("output"), "follow-by-depnet")
+						defer writer.Close()
+						{
+							etac := eta.New(int64(totalToBeFollowed))
+							followedNew := 0
+							count := 0
+							// Follow repos:
+							err :=
+								depnetloader.
+									NewLoader(target).
+									SubPackage(subPackage).
+									Type(typ).
+									DoWithCallback(func(dep string) bool {
+
+										repoURL := "https://github.com/" + dep
+
+										if cache != nil && cache.HasAny(repoURL) {
+											// Already followed; skip.
+											return true
+										}
+										writer.WriteLine(repoURL)
+										envelope := follower(repoURL, etac)
+										if envelope != nil {
+											// If the project was NOT already known to lgtm.com,
+											// sleep to avoid triggering too many new builds:
+											isNew := !envelope.IsKnown()
+											if isNew {
+												followedNew++
+												time.Sleep(waitDuration)
+											}
+										}
+
+										count++
+										if limit > 0 && count >= limit {
+											return false
+										}
+
+										return true
+									})
+							if err != nil {
+								panic(err)
+							}
+							Successf("Followed %v projects (%v new)", totalToBeFollowed, followedNew)
+						}
+					}
+
 					return nil
 				},
 			},
@@ -1045,7 +1203,7 @@ func main() {
 
 					projectkeys := make([]string, 0)
 					if len(repoURLs) > 0 {
-						cache, err := client.GetFollowedCache()
+						cache, err := client.GetFollowedCache(noCache)
 						hasCache := err == nil && cache != nil
 						if !hasCache {
 							if ignoreFollowedErrors {
@@ -1695,7 +1853,7 @@ func main() {
 						}
 					}
 
-					cache, err := client.GetFollowedCache()
+					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
 						if ignoreFollowedErrors {
@@ -1758,7 +1916,7 @@ func main() {
 							}
 							addedCount := 0
 
-							notFollowedByThisList := Filter(projectKeys,
+							notFollowedByThisList := ref.Filter(projectKeys,
 								func(i int, prKey string) bool {
 									notFollowed := !SliceContains(alreadyFollowedProjectKeys[wantedListName], prKey)
 									return notFollowed
@@ -1870,7 +2028,7 @@ func main() {
 					projectCount := len(queryResults)
 					partsNumber := calcChunkCount(projectCount, 100)
 
-					projectKeys := MapSlice(queryResults, func(i int) string {
+					projectKeys := ref.MapSlice(queryResults, func(i int) string {
 						return queryResults[i].ProjectKey
 					})
 
@@ -1904,7 +2062,7 @@ func main() {
 							}
 
 							{
-								got := FilterSlice(queryResults, func(i int) bool {
+								got := ref.FilterSlice(queryResults, func(i int) bool {
 									return queryResults[i].ProjectKey == projectKey
 								}).([]*GetQueryResultsResponseItem)
 								out.Result = got[0]
@@ -1996,7 +2154,7 @@ func GithubListReposByCodeSearch(query string, limit int) ([]*github.Repository,
 	}
 
 	// Deduplicate results (for any given repo, there might be more than one code results).
-	DeduplicateSlice2(&codeResults, func(i int) string {
+	ref.DeduplicateSlice2(&codeResults, func(i int) string {
 		return codeResults[i].Repository.GetHTMLURL()
 	})
 
@@ -2288,6 +2446,53 @@ func trimGithubPrefix(s string) string {
 	return strings.TrimPrefix(s, "https://github.com/")
 }
 
+type LineWriter struct {
+	file   *os.File
+	writer *bufio.Writer
+}
+
+//
+func (wr *LineWriter) WriteLine(line string) error {
+	_, err := fmt.Fprintln(wr.writer, line)
+	return err
+}
+
+func (wr *LineWriter) Close() error {
+	if err := wr.writer.Flush(); err != nil {
+		log.Fatal(err)
+	}
+	return wr.file.Close()
+}
+
+func writtableTargetListToTempFile(outputFileName string, cmdName string) *LineWriter {
+	var outputFile *os.File
+	var err error
+
+	if outputFileName == "" {
+		scanName := Sf(
+			"lgtml-cli-%s-%s",
+			cmdName,
+			time.Now().Format(FilenameTimeFormat),
+		)
+		outputFile, err = ioutil.TempFile("", scanName+".*.txt")
+		outputFileName = outputFile.Name()
+	} else {
+		outputFile, err = os.Create(outputFileName)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	Errorln(Sf(PurpleBG("Writing list of targets to %s"), outputFileName))
+	writer := bufio.NewWriter(outputFile)
+
+	return &LineWriter{
+		writer: writer,
+		file:   outputFile,
+	}
+}
+
 func saveTargetListToTempFile(outputFileName string, cmdName string, targets []string) {
 	var outputFile *os.File
 	var err error
@@ -2445,7 +2650,7 @@ func (fpc *FollowedProjectCache) Refresh() error {
 	return nil
 }
 func (fpc *FollowedProjectCache) RemoveFollowed(candidates []string) []string {
-	toBeFollowed := Filter(candidates, func(i int, repoURL string) bool {
+	toBeFollowed := ref.Filter(candidates, func(i int, repoURL string) bool {
 		isNOTFollowed := !fpc.HasAny(repoURL)
 		return isNOTFollowed
 	}).([]string)
@@ -2467,7 +2672,7 @@ func (fpc *FollowedProjectCache) Projects() []*Project {
 	fpc.mu.RLock()
 	defer fpc.mu.RUnlock()
 
-	return Filter(fpc.projects, func(i int) bool {
+	return ref.Filter(fpc.projects, func(i int) bool {
 		return true
 	}).([]*Project)
 }
@@ -2475,11 +2680,14 @@ func (fpc *FollowedProjectCache) ProtoProjects() []*ProtoProject {
 	fpc.mu.RLock()
 	defer fpc.mu.RUnlock()
 
-	return Filter(fpc.proto, func(i int) bool {
+	return ref.Filter(fpc.proto, func(i int) bool {
 		return true
 	}).([]*ProtoProject)
 }
-func (cl *Client) GetFollowedCache() (*FollowedProjectCache, error) {
+func (cl *Client) GetFollowedCache(dont bool) (*FollowedProjectCache, error) {
+	if dont {
+		return nil, errors.New("decided to not fetch the cache")
+	}
 	fpc := NewFollowedProjectCache(cl)
 	err := fpc.Refresh()
 	if err != nil {
@@ -2526,4 +2734,27 @@ func mustStringSliceNotNil(sl []string) []string {
 		return make([]string, 0)
 	}
 	return sl
+}
+func JSON(pretty bool, v interface{}) {
+	if pretty {
+		ToJSONIndentToStdout(v)
+	} else {
+		ToJSONToStdout(v)
+	}
+}
+
+func ToJSONIndentToStdout(v interface{}) {
+	j, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	Ln(string(j))
+}
+
+func ToJSONToStdout(v interface{}) {
+	j, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	Ln(string(j))
 }

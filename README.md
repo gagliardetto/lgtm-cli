@@ -154,6 +154,42 @@ Example 2: follow repositories that import the `golang.org/x/oauth2` package.
 lgtm follow-by-go-imported-by "golang.org/x/oauth2"
 ```
 
+### Follow repositories that depend on a specific repository/package (GitHub Dependency Network)
+
+Follow repositories that depend on a given repo; this info is obtained from the [GitHub Dependency Network](https://docs.github.com/en/github/visualizing-repository-data-with-graphs/about-the-dependency-graph).
+
+See the [official docs](https://docs.github.com/en/github/visualizing-repository-data-with-graphs/about-the-dependency-graph#supported-package-ecosystems) to find out what ecosystems are supported (js, python, ruby, php, etc.)
+
+Example 1: get info about dependents of `eslint/eslint` (will only print a summary):
+
+```bash
+lgtm follow-by-depnet --info "eslint/eslint"
+```
+
+Example 2: follow all repositories that depend on `eslint/eslint`.
+
+```bash
+lgtm follow-by-depnet "eslint/eslint"
+```
+
+Example 3: follow the first 100 repositories that depend on `eslint/eslint`.
+
+```bash
+lgtm follow-by-depnet --limit=100 "eslint/eslint"
+```
+
+Example 4: follow the first 100 packages that depend on `eslint/eslint`.
+
+```bash
+lgtm follow-by-depnet --type=PACKAGE --limit=100 "eslint/eslint"
+```
+
+Example 5: follow the first 100 repositories that depend on `eslint/eslint`, more specifically on the `eslint-config-eslint` package.
+
+```bash
+lgtm follow-by-depnet --limit=100 --sub="eslint-config-eslint" "eslint/eslint"
+```
+
 ### List all lists
 
 ```bash
