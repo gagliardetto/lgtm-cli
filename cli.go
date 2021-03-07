@@ -856,7 +856,7 @@ func main() {
 			},
 			{
 				Name:  "follow-by-go-imported-by",
-				Usage: "Follow Go projects by importers of a package.",
+				Usage: "Follow Go projects that import a specific Go package.",
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:  "limit",
