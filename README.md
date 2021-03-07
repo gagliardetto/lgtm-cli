@@ -140,6 +140,20 @@ For query syntax, see: https://docs.github.com/en/free-pro-team@latest/github/se
 lgtm follow-by-code-search --limit=101 'from flask import Flask language:python filename:"__init__.py"'
 ```
 
+### Follow Go projects that import a specific Go package
+
+Example 1: follow repositories that import the `html/template` package.
+
+```bash
+lgtm follow-by-go-imported-by "html/template"
+```
+
+Example 2: follow repositories that import the `golang.org/x/oauth2` package.
+
+```bash
+lgtm follow-by-go-imported-by "golang.org/x/oauth2"
+```
+
 ### List all lists
 
 ```bash
