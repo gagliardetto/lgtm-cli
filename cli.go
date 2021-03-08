@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	apiRateLimiter = ratelimit.New(1, ratelimit.WithoutSlack)
+	apiRateLimiter = ratelimit.New(1, ratelimit.WithSlack(3))
 	ghClient       *ghc.Client
 )
 
@@ -48,8 +48,9 @@ func main() {
 	var noCache bool
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	unfollower := func(isProto bool, key string, name string, etac *eta.ETA) {
+	unfollower := func(isProto bool, key string, name string, etac *eta.ETA, wg *sync.WaitGroup) {
 		defer etac.Done(1)
+		defer wg.Done()
 
 		averagedETA := etac.GetETA()
 		thisETA := durafmt.Parse(averagedETA.Round(time.Second)).String()
@@ -251,6 +252,8 @@ func main() {
 				Name:  "unfollow-all",
 				Usage: "Unfollow all currently followed repositories (a.k.a. \"projects\").",
 				Action: func(c *cli.Context) error {
+					apiRateLimiter = ratelimit.New(3, ratelimit.WithSlack(3))
+
 					cache, err := client.GetFollowedCache(false)
 					if err != nil {
 						panic(err)
@@ -269,13 +272,17 @@ func main() {
 
 					etac := eta.New(int64(total))
 
+					wg := &sync.WaitGroup{}
 					for _, proto := range cache.ProtoProjects() {
-						unfollower(true, proto.Key, proto.CloneURL, etac)
+						wg.Add(1)
+						go unfollower(true, proto.Key, proto.CloneURL, etac, wg)
 					}
 					for _, pr := range cache.Projects() {
-						unfollower(false, pr.Key, pr.ExternalURL.URL, etac)
+						wg.Add(1)
+						go unfollower(false, pr.Key, pr.ExternalURL.URL, etac, wg)
 					}
 
+					wg.Wait()
 					return nil
 				},
 			},
@@ -289,6 +296,8 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
+					apiRateLimiter = ratelimit.New(3, ratelimit.WithSlack(3))
+
 					repoURLsRaw := []string(c.Args())
 					hasRepoListFilepath := c.IsSet("f")
 					if hasRepoListFilepath {
@@ -330,6 +339,7 @@ func main() {
 						CLIMustConfirmYes("Do you really want to unfollow all projects?")
 					}
 
+					wg := &sync.WaitGroup{}
 					cache, err := client.GetFollowedCache(noCache)
 					hasCache := err == nil && cache != nil
 					if !hasCache {
@@ -375,7 +385,8 @@ func main() {
 							if matched {
 								message += " " + Sf("(matched from %s pattern)", Lime(pattern))
 							}
-							unfollower(false, pr.Key, message, etac)
+							wg.Add(1)
+							go unfollower(false, pr.Key, message, etac, wg)
 						}
 						// Unfollow proto-projects:
 						for _, pr := range protoToBeUnfollowed {
@@ -385,7 +396,8 @@ func main() {
 							if matched {
 								message += " " + Sf("(matched from %s pattern)", Lime(pattern))
 							}
-							unfollower(true, pr.Key, message, etac)
+							wg.Add(1)
+							go unfollower(true, pr.Key, message, etac, wg)
 						}
 					} else {
 						// we don't have the cache, so let's unfollow anything we can
@@ -427,10 +439,12 @@ func main() {
 						if len(projectKeys) > 0 {
 							etac := eta.New(int64(len(projectKeys)))
 							for projectURL, projectKey := range projectKeys {
-								unfollower(false, projectKey, projectURL, etac)
+								wg.Add(1)
+								go unfollower(false, projectKey, projectURL, etac, wg)
 							}
 						}
 					}
+					wg.Wait()
 					return nil
 				},
 			},
