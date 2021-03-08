@@ -1870,18 +1870,29 @@ func main() {
 					for _, repoURL := range repoURLs {
 						// Only built projects can be added to a list.
 						// try to find out whether it is a built project or not:
-						var isABuiltProject bool
+						var isABuiltProject *bool
 						if hasCache {
 							// If succeeded to get the list of followed projects,
 							// then check whether the project is present there.
 							// NOTE: Even if it is not a followed project, it still could be a built project.
-							pr := cache.GetProject(repoURL)
-							if pr != nil {
-								isABuiltProject = true
-								projectKeys = append(projectKeys, pr.Key)
+							{
+								pr := cache.GetProject(repoURL)
+								if pr != nil {
+									isABuiltProject = BoolPtr(true)
+									projectKeys = append(projectKeys, pr.Key)
+								}
+							}
+							{
+								proto := cache.GetProto(repoURL)
+								if proto != nil {
+									isABuiltProject = BoolPtr(false)
+								}
 							}
 						}
-						if !isABuiltProject {
+						// If isABuiltProject is still nil, that means that
+						// we could not determine whether it's a built project or not.
+						// Let's try using GetProjectBySlug instead.
+						if isABuiltProject == nil {
 							parsed, err := ParseGitURL(repoURL, true)
 							if err != nil {
 								panic(err)
@@ -1899,7 +1910,7 @@ func main() {
 									continue RepoLoop
 								}
 							} else {
-								isABuiltProject = true
+								isABuiltProject = BoolPtr(true)
 								projectKeys = append(projectKeys, pr.Key)
 							}
 						}
@@ -2570,13 +2581,10 @@ func isAlreadyFollowedProto(protoProjects []*ProtoProject, projectURL string) (*
 }
 
 func isProtoMatch(cloneURL string, projectURL string) bool {
-	withDotGitSuffix := ""
-	if !strings.HasSuffix(projectURL, ".git") {
-		withDotGitSuffix = projectURL + ".git"
-	} else {
-		withDotGitSuffix = projectURL
-	}
-	alreadyFollowed := (ToLower(projectURL) == ToLower(cloneURL)) || (ToLower(withDotGitSuffix) == ToLower(cloneURL))
+	cloneURL = strings.TrimSuffix(cloneURL, ".git")
+	projectURL = strings.TrimSuffix(projectURL, ".git")
+
+	alreadyFollowed := (ToLower(projectURL) == ToLower(cloneURL))
 	return alreadyFollowed
 }
 
@@ -2757,4 +2765,7 @@ func ToJSONToStdout(v interface{}) {
 		panic(err)
 	}
 	Ln(string(j))
+}
+func BoolPtr(b bool) *bool {
+	return &b
 }
