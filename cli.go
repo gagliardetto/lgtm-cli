@@ -212,6 +212,16 @@ func main() {
 			{
 				Name:  "unfollow-all",
 				Usage: "Unfollow all currently followed repositories (a.k.a. \"projects\").",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "no-projects",
+						Usage: "Don't unfollow projects.",
+					},
+					&cli.BoolFlag{
+						Name:  "no-proto",
+						Usage: "Don't unfollow proto projects.",
+					},
+				},
 				Action: func(c *cli.Context) error {
 
 					cache, err := client.GetFollowedCache(false)
@@ -221,24 +231,36 @@ func main() {
 
 					totalProjects := cache.NumProjects()
 					totalProtoProjects := cache.NumProto()
-					total := totalProjects + totalProtoProjects
+					var total int
+					if !c.Bool("no-projects") {
+						total += totalProjects
+					}
+					if !c.Bool("no-proto") {
+						total += totalProtoProjects
+					}
 
-					Infof("You are following a total of %v repos", total)
+					Infof("%v repos will be unfollowed", total)
 
 					if total == 0 {
 						return nil
 					}
-					Infof("Starting to unfollow all...")
+					Infof("Starting to unfollow ...")
 
 					etac := eta.New(int64(total))
 					apiRateLimiter = ratelimit.New(3, ratelimit.WithSlack(3))
 					unfollower := NewUnfollower(client, 6)
 
-					for _, proto := range cache.ProtoProjects() {
-						unfollower.Unfollow(true, proto.Key, proto.CloneURL, etac)
+					if !c.Bool("no-projects") {
+						Infof("Unfollowing projects ...")
+						for _, pr := range cache.Projects() {
+							unfollower.Unfollow(false, pr.Key, pr.ExternalURL.URL, etac)
+						}
 					}
-					for _, pr := range cache.Projects() {
-						unfollower.Unfollow(false, pr.Key, pr.ExternalURL.URL, etac)
+					if !c.Bool("no-proto") {
+						Infof("Unfollowing proto projects ...")
+						for _, proto := range cache.ProtoProjects() {
+							unfollower.Unfollow(true, proto.Key, proto.CloneURL, etac)
+						}
 					}
 
 					return unfollower.Wait()
