@@ -1123,6 +1123,10 @@ func main() {
 						Name:  "all-lists, al",
 						Usage: "Query all current user's lists.",
 					},
+					&cli.BoolFlag{
+						Name:  "force, y",
+						Usage: "Don't ask for confirmation.",
+					},
 				},
 				Action: func(c *cli.Context) error {
 
@@ -1140,6 +1144,8 @@ func main() {
 					if fileExt != ".ql" {
 						Fatalf("file is not a .ql: %s", queryFilepath)
 					}
+
+					force := c.Bool("y")
 
 					projectListKeys := mustStringSliceNotNil(c.StringSlice("list-key"))
 					projectListNames := mustStringSliceNotNil(c.StringSlice("list"))
@@ -1315,18 +1321,20 @@ func main() {
 						}
 					}
 
-					yes, err := CLIAskYesNo(Sf(
-						"Do you want to send the query %q to be run on %v projects and %v lists?",
-						queryFilepath,
-						len(projectkeys),
-						len(projectListKeys),
-					))
-					if err != nil {
-						panic(err)
-					}
-					if !yes {
-						Infof("Aborting...")
-						return nil
+					if !force {
+						yes, err := CLIAskYesNo(Sf(
+							"Do you want to send the query %q to be run on %v projects and %v lists?",
+							queryFilepath,
+							len(projectkeys),
+							len(projectListKeys),
+						))
+						if err != nil {
+							panic(err)
+						}
+						if !yes {
+							Infof("Aborting...")
+							return nil
+						}
 					}
 
 					Infof(
